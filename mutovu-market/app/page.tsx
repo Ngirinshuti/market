@@ -1,10 +1,9 @@
-import Image from "next/image";
-import MutovuCategories from "./components/buyer/Categories";
+import LandingPage from "./components/home/LandingPage";
 
 export default function Home() {
   return (
 <div>
-    <MutovuCategories />
+    <LandingPage />
 </div>
   );
 }

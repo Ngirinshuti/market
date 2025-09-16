@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Search, Heart, User, ShoppingBag, ChevronDown, Filter, Star } from 'lucide-react';
 
-const MutovuCategories = () => {
+const NextFashionPage = () => {
   const [selectedCategory, setSelectedCategory] = useState('New In');
   const [showFilters, setShowFilters] = useState(false);
 
@@ -68,51 +68,6 @@ const MutovuCategories = () => {
           <span>Help</span>
         </div>
       </div>
-
-      {/* Header */}
-      <header className="border-b">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            {/* Search */}
-            <div className="relative flex-1 max-w-md">
-              <input
-                type="text"
-                placeholder="Search for anything here..."
-                className="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
-              />
-              <Search className="absolute right-3 top-2.5 h-5 w-5 text-gray-400" />
-            </div>
-
-            {/* Logo */}
-            <div className="flex-1 text-center">
-              <h1 className="text-3xl font-bold tracking-wider">Mutovu</h1>
-            </div>
-
-            {/* Right Icons */}
-            <div className="flex items-center gap-4 flex-1 justify-end">
-              <Heart className="h-6 w-6 cursor-pointer" />
-              <User className="h-6 w-6 cursor-pointer" />
-              <ShoppingBag className="h-6 w-6 cursor-pointer" />
-              <button className="bg-black text-white px-6 py-2 rounded font-medium">
-                CHECKOUT
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="border-t">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex items-center justify-center space-x-8 py-4">
-              {['WOMEN', 'MEN', 'BOYS', 'GIRLS', 'HOME', 'SCHOOL', 'BABY', 'FURNITURE', 'BRANDS', 'BEAUTY', 'GIFTS', 'SPORTS', 'CLEARANCE'].map((item) => (
-                <a key={item} href="#" className="text-sm font-medium hover:underline">
-                  {item}
-                </a>
-              ))}
-            </div>
-          </div>
-        </nav>
-      </header>
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
@@ -236,4 +191,4 @@ const MutovuCategories = () => {
   );
 };
 
-export default MutovuCategories;
+export default NextFashionPage;
