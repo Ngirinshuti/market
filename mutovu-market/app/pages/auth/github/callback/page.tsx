@@ -28,7 +28,7 @@ const GithubCallback = () => {
         // This function calls the /user/api/auth/github/callback/ backend endpoint
         await authUtils.handleGithubCallback(code);
 
-        router.push("/pages/dashboard?welcome=true");
+        router.push("../../../");
       } catch (err: any) {
         // Log the full error to the console for debugging
         console.error("GitHub Auth Error:", err);

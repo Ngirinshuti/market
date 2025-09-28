@@ -42,11 +42,11 @@ const Dashboard = () => {
   useEffect(() => {
     loadUserProfile();
 
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get("welcome")) {
-      setMessage("Welcome! Your account has been created successfully.");
-      setIsWelcome(true);
-    }
+    // const urlParams = new URLSearchParams(window.location.search);
+    // if (urlParams.get("welcome")) {
+    //   setMessage("Welcome! You logged in successfully.");
+    //   setIsWelcome(true);
+    // }
   }, []);
 
   const loadUserProfile = async () => {

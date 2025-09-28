@@ -24,7 +24,7 @@ const GoogleCallback = () => {
         }
 
         await authUtils.handleGoogleCallback(code);
-        router.push("/pages/dashboard?welcome=true");
+        router.push("../../../");
       } catch (err: any) {
         setError(err.message || "Authentication failed");
         setTimeout(() => {
