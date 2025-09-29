@@ -1,778 +1,549 @@
+// app/pages/deliverer/dashboard/page.tsx
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   MapPin,
-  Navigation,
   Package,
   Clock,
   DollarSign,
-  Star,
   CheckCircle,
-  AlertCircle,
   RefreshCw,
   Truck,
-  User,
-  Phone,
-  Mail,
-  Route,
-  Timer,
-  Zap,
-  TrendingUp,
   Filter,
   Search,
+  Loader2,
+  AlertCircle,
+  ThumbsUp,
+  XCircle,
+  Calendar,
+  Zap,
 } from "lucide-react";
-import { authUtils } from "../../../../app/lib/auth";
-import axios from "axios";
 
-const API_BASE_URL = "http://localhost:8000/api";
+// Assuming you have an auth utility, ensure the import is correct (e.g., default import)
+import { authUtils } from "../../../lib/auth";
+import { delivererAPI } from "../../../lib/delivererApi";
+import {
+  Delivery,
+  OrderAvailable,
+  DelivererStats,
+  User, // Now correctly imported from delivererTypes.ts
+  calculateDistance,
+  formatPrice,
+} from "../../../lib/delivererTypes";
 
 const DelivererDashboard = () => {
   const router = useRouter();
   const [authCheckLoading, setAuthCheckLoading] = useState(true);
-  const [user, setUser] = useState(null);
-  const [nearbyShops, setNearbyShops] = useState([]);
-  const [availableOrders, setAvailableOrders] = useState([]);
-  const [myDeliveries, setMyDeliveries] = useState([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [availableOrders, setAvailableOrders] = useState<OrderAvailable[]>([]);
+  const [myDeliveries, setMyDeliveries] = useState<Delivery[]>([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [userLocation, setUserLocation] = useState(null);
+  const [success, setSuccess] = useState("");
+  const [userLocation, setUserLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [locationError, setLocationError] = useState("");
-  const [selectedRadius, setSelectedRadius] = useState(5); // km
+  const [selectedRadius, setSelectedRadius] = useState(10); // km
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-
-  // Statistics
-  const [stats, setStats] = useState({
-    totalDeliveries: 0,
-    completedToday: 0,
-    totalEarnings: 0,
-    avgRating: 0,
-    pendingDeliveries: 0,
+  const [stats, setStats] = useState<DelivererStats>({
+    period: "all",
+    total_earnings: 0,
+    total_deliveries: 0,
+    average_per_delivery: 0,
+    daily_breakdown: [],
   });
 
+  const statusOptions = [
+    { value: "all", label: "All Status" },
+    { value: "accepted", label: "Accepted (Active)" },
+    { value: "picked_up", label: "Picked Up" },
+    { value: "delivered", label: "Delivered" },
+    { value: "cancelled", label: "Cancelled" },
+  ];
+
+  // --- Fetching Logic ---
+  const fetchStats = useCallback(async () => {
+    try {
+      const data = await delivererAPI.getStats();
+      setStats(data);
+    } catch (err) {
+      console.error("Failed to fetch stats:", err);
+    }
+  }, []);
+
+  const fetchAvailableOrders = useCallback(async () => {
+    if (!userLocation) return;
+    setLoading(true);
+    setError("");
+    try {
+      const orders = await delivererAPI.getAvailableOrders(
+        userLocation.lat,
+        userLocation.lng,
+        selectedRadius
+      );
+      setAvailableOrders(orders);
+    } catch (err: any) {
+      setError("Failed to fetch available orders.");
+      setAvailableOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [userLocation, selectedRadius]);
+
+  const fetchMyDeliveries = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const deliveries = await delivererAPI.getMyDeliveries(statusFilter);
+      setMyDeliveries(deliveries);
+    } catch (err: any) {
+      setError("Failed to fetch assigned deliveries.");
+      setMyDeliveries([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [statusFilter]);
+
+  // --- Location and Initial Load ---
   useEffect(() => {
-    const initializeDelivererDashboard = async () => {
-      try {
-        const isAuthenticated = authUtils.isAuthenticated();
-
-        if (!isAuthenticated) {
-          router.push("/pages/login");
-          return;
-        }
-
-        const userData = authUtils.getUser();
-
-        if (userData?.role?.toLowerCase() !== "deliverer") {
-          router.push("/");
-          return;
-        }
-
-        setUser(userData);
-        await requestLocationPermission();
-      } catch (error) {
-        console.error("Initialization error:", error);
-        setError("Failed to initialize dashboard");
-      } finally {
+    const checkAuth = async () => {
+      // Corrected usage of authUtils
+      const authenticatedUser = await authUtils.getCurrentUser();
+      if (!authenticatedUser) {
+        router.push("/pages/login");
+      } else {
+        // Cast or assume correct type based on authUtils return
+        setUser(authenticatedUser as User);
         setAuthCheckLoading(false);
       }
     };
-
-    initializeDelivererDashboard();
+    checkAuth();
   }, [router]);
 
-  const requestLocationPermission = async () => {
-    if (!navigator.geolocation) {
-      setLocationError("Geolocation is not supported by this browser.");
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const location = {
-          lat: position.coords.latitude,
-          lng: position.coords.longitude,
-        };
-        setUserLocation(location);
-        loadNearbyShops(location);
-        loadAvailableOrders(location);
-        loadMyDeliveries();
-        loadStatistics();
-      },
-      (error) => {
-        setLocationError(
-          "Failed to get your location. Please enable location services."
-        );
-        console.error("Geolocation error:", error);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 300000, // 5 minutes
-      }
-    );
-  };
-
-  const loadNearbyShops = async (location) => {
-    setLoading(true);
-    try {
-      const accessToken = authUtils.getAccessToken();
-      const response = await axios.get(
-        `${API_BASE_URL}/shops/nearby/?lat=${location.lat}&lng=${location.lng}&radius=${selectedRadius}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
+  useEffect(() => {
+    if (user && !userLocation) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setUserLocation({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            });
           },
-        }
-      );
-      setNearbyShops(response.data.results || response.data || []);
-    } catch (error) {
-      console.error("Error loading nearby shops:", error);
-      setError("Failed to load nearby shops");
+          (err) => {
+            setLocationError(
+              "Geolocation failed. Orders will not be location-filtered."
+            );
+            console.error(err);
+          }
+        );
+      } else {
+        setLocationError("Geolocation is not supported by this browser.");
+      }
+    }
+  }, [user, userLocation]);
+
+  useEffect(() => {
+    if (user) {
+      fetchMyDeliveries();
+      fetchStats();
+    }
+  }, [user, fetchMyDeliveries, fetchStats]);
+
+  useEffect(() => {
+    if (userLocation) {
+      fetchAvailableOrders();
+    }
+  }, [userLocation, selectedRadius, fetchAvailableOrders]);
+
+  // --- Filtering Logic ---
+  const filteredDeliveries = useMemo(() => {
+    return myDeliveries.filter((delivery) => {
+      const productName =
+        delivery.order?.variant_details?.product_details?.name?.toLowerCase() ||
+        "";
+      const orderId = delivery.order?.id.toString() || "";
+
+      const matchesSearch =
+        productName.includes(searchTerm.toLowerCase()) ||
+        orderId.includes(searchTerm);
+
+      return matchesSearch;
+    });
+  }, [myDeliveries, searchTerm]);
+
+  // --- Actions ---
+  const handleAcceptOrder = async (order: OrderAvailable) => {
+    setLoading(true);
+    setError("");
+    setSuccess("");
+    try {
+      const estimatedTime = 30;
+
+      await delivererAPI.acceptOrder(order.id, estimatedTime);
+
+      setSuccess(`Order #${order.id} accepted! Ready for pickup.`);
+
+      await fetchAvailableOrders();
+      await fetchMyDeliveries();
+      await fetchStats();
+    } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.order?.[0] ||
+        err.response?.data?.detail ||
+        "Failed to accept delivery. It may be already assigned.";
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadAvailableOrders = async (location) => {
+  const handleUpdateDeliveryStatus = async (
+    deliveryId: number,
+    newStatus: string
+  ) => {
+    setLoading(true);
+    setError("");
+    setSuccess("");
     try {
-      const accessToken = authUtils.getAccessToken();
-      const response = await axios.get(
-        `${API_BASE_URL}/orders/available-for-delivery/?lat=${location.lat}&lng=${location.lng}&radius=${selectedRadius}`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      setAvailableOrders(response.data.results || response.data || []);
-    } catch (error) {
-      console.error("Error loading available orders:", error);
-    }
-  };
+      await delivererAPI.updateDeliveryStatus(deliveryId, newStatus);
 
-  const loadMyDeliveries = async () => {
-    try {
-      const accessToken = authUtils.getAccessToken();
-      const response = await axios.get(
-        `${API_BASE_URL}/deliveries/my-deliveries/`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      setMyDeliveries(response.data.results || response.data || []);
-    } catch (error) {
-      console.error("Error loading my deliveries:", error);
-    }
-  };
-
-  const loadStatistics = async () => {
-    try {
-      const accessToken = authUtils.getAccessToken();
-      const response = await axios.get(
-        `${API_BASE_URL}/deliverers/statistics/`,
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-      setStats(response.data);
-    } catch (error) {
-      console.error("Error loading statistics:", error);
-    }
-  };
-
-  const handleAcceptDelivery = async (orderId) => {
-    try {
-      const accessToken = authUtils.getAccessToken();
-      await axios.post(
-        `${API_BASE_URL}/orders/${orderId}/accept-delivery/`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
+      setSuccess(
+        `Delivery #${deliveryId} marked as ${newStatus.replace("_", " ")}.`
       );
 
-      // Refresh data
-      await loadAvailableOrders(userLocation);
-      await loadMyDeliveries();
-      alert("Delivery accepted successfully!");
-    } catch (error) {
-      console.error("Error accepting delivery:", error);
-      alert("Failed to accept delivery");
-    }
-  };
-
-  const handleUpdateDeliveryStatus = async (deliveryId, status) => {
-    try {
-      const accessToken = authUtils.getAccessToken();
-      await axios.patch(
-        `${API_BASE_URL}/deliveries/${deliveryId}/`,
-        { status },
-        {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
+      await fetchMyDeliveries();
+      await fetchStats();
+    } catch (err: any) {
+      setError(
+        err.response?.data?.message ||
+          `Failed to update status to ${newStatus}.`
       );
-
-      await loadMyDeliveries();
-      alert("Delivery status updated successfully!");
-    } catch (error) {
-      console.error("Error updating delivery status:", error);
-      alert("Failed to update delivery status");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const calculateDistance = (lat1, lng1, lat2, lng2) => {
-    const R = 6371; // Radius of the Earth in kilometers
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLng = ((lng2 - lng1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;
-    return distance.toFixed(1);
-  };
-
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
-      case "accepted":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
-      case "in_transit":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
-      case "delivered":
-        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
-      case "cancelled":
-        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200";
-    }
-  };
-
-  const filteredDeliveries = myDeliveries.filter((delivery) => {
-    const matchesSearch =
-      delivery.order?.product?.name
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase()) ||
-      delivery.customer?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || delivery.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
-
+  // --- Component Rendering (Rest of the UI remains the same) ---
   if (authCheckLoading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">
-            Loading deliverer dashboard...
-          </p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
-  if (locationError) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8 text-center">
-          <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-6" />
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Location Required
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-8">
-            {locationError}
-          </p>
-          <button
-            onClick={requestLocationPermission}
-            className="w-full bg-blue-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2">
-            <Navigation className="h-5 w-5" />
-            Enable Location
-          </button>
+  const DeliveryCard: React.FC<{ delivery: Delivery }> = ({ delivery }) => (
+    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="flex justify-between items-center mb-2">
+        <h4 className="text-md font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+          <Truck className="h-5 w-5 text-purple-500" />
+          Delivery #{delivery.id}
+        </h4>
+        <span
+          className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
+            delivery.status === "delivered"
+              ? "bg-green-100 text-green-800"
+              : delivery.status === "picked_up"
+              ? "bg-indigo-100 text-indigo-800"
+              : "bg-yellow-100 text-yellow-800"
+          }`}>
+          {delivery.status.charAt(0).toUpperCase() +
+            delivery.status.slice(1).replace("_", " ")}
+        </span>
+      </div>
+
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Order: #{delivery.order.id} | Product:{" "}
+        {delivery.order.variant_details.product_details.name}
+      </p>
+      <p className="text-lg font-bold text-green-600 dark:text-green-400 my-1">
+        {formatPrice(delivery.delivery_fee)} Fee
+      </p>
+
+      <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-2">
+        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+          <MapPin className="h-4 w-4 mr-2 text-blue-500" />
+          <span className="font-medium">Pickup:</span>{" "}
+          {delivery.pickup_address.split(",")[0]}...
+        </div>
+        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+          <MapPin className="h-4 w-4 mr-2 text-red-500" />
+          <span className="font-medium">Deliver:</span>{" "}
+          {delivery.delivery_address.split(",")[0]}...
+        </div>
+        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+          <Clock className="h-4 w-4 mr-2 text-gray-500" />
+          <span className="font-medium">Est. Time:</span>{" "}
+          {delivery.estimated_time} mins
         </div>
       </div>
-    );
-  }
+
+      <div className="mt-4 flex gap-2">
+        {delivery.status === "accepted" && (
+          <button
+            onClick={() => handleUpdateDeliveryStatus(delivery.id, "picked_up")}
+            disabled={loading}
+            className="flex-1 bg-blue-600 text-white text-sm py-1.5 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Mark as Picked Up"
+            )}
+          </button>
+        )}
+        {delivery.status === "picked_up" && (
+          <button
+            onClick={() => handleUpdateDeliveryStatus(delivery.id, "delivered")}
+            disabled={loading}
+            className="flex-1 bg-green-600 text-white text-sm py-1.5 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
+            {loading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              "Mark as Delivered"
+            )}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
+  const AvailableOrderCard: React.FC<{ order: OrderAvailable }> = ({
+    order,
+  }) => (
+    <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+      <p className="text-md font-semibold text-gray-900 dark:text-white flex justify-between items-center">
+        Order #{order.id}
+        <span className="text-sm font-normal text-blue-600 dark:text-blue-400">
+          <MapPin className="h-4 w-4 inline mr-1" />
+          {order.distance ? `${order.distance} km` : "Distance unknown"}
+        </span>
+      </p>
+      <p className="text-xl font-bold text-green-600 dark:text-green-400 my-1">
+        {formatPrice(order.delivery_fee || 5.0)} Fee
+      </p>
+      <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+        <p>
+          <Package className="h-4 w-4 inline mr-1" />
+          {order.variant?.product?.name}
+        </p>
+        <p>
+          <Calendar className="h-4 w-4 inline mr-1" />
+          Pickup: {order.variant?.product?.shop?.name}
+        </p>
+        <p>
+          <Truck className="h-4 w-4 inline mr-1" />
+          Delivery to: {order.user?.address?.split(",")[0]}...
+        </p>
+      </div>
+
+      <button
+        onClick={() => handleAcceptOrder(order)}
+        className="w-full mt-3 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+        disabled={loading}>
+        {loading ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : (
+          <ThumbsUp className="h-5 w-5" />
+        )}
+        Accept Delivery
+      </button>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                Deliverer Dashboard
-              </h1>
-              <p className="text-gray-600 dark:text-gray-400">
-                Welcome back, {user?.first_name} {user?.last_name}
-              </p>
-              {userLocation && (
-                <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-1 mt-1">
-                  <MapPin className="h-4 w-4" />
-                  Location: {userLocation.lat.toFixed(4)},{" "}
-                  {userLocation.lng.toFixed(4)}
-                </p>
-              )}
-            </div>
+    <div className="p-4 md:p-8 space-y-8 dark:bg-gray-900 min-h-screen">
+      <h2 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+        <Truck className="h-8 w-8 text-blue-600" />
+        Deliverer Dashboard
+      </h2>
 
-            <div className="flex items-center gap-4">
-              <select
-                value={selectedRadius}
-                onChange={(e) => {
-                  const newRadius = parseInt(e.target.value);
-                  setSelectedRadius(newRadius);
-                  if (userLocation) {
-                    loadNearbyShops(userLocation);
-                    loadAvailableOrders(userLocation);
-                  }
-                }}
-                className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                <option value={2}>2km radius</option>
-                <option value={5}>5km radius</option>
-                <option value={10}>10km radius</option>
-                <option value={20}>20km radius</option>
-              </select>
-
-              <button
-                onClick={() => {
-                  if (userLocation) {
-                    loadNearbyShops(userLocation);
-                    loadAvailableOrders(userLocation);
-                    loadMyDeliveries();
-                  }
-                }}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2">
-                <RefreshCw className="h-4 w-4" />
-                Refresh
-              </button>
-            </div>
-          </div>
+      {error && (
+        <div className="bg-red-100 dark:bg-red-900 border border-red-400 text-red-700 dark:text-red-300 p-3 rounded-lg flex items-center gap-2">
+          <AlertCircle className="h-5 w-5 flex-shrink-0" />
+          <p className="text-sm">{error}</p>
         </div>
+      )}
+      {success && (
+        <div className="bg-green-100 dark:bg-green-900 border border-green-400 text-green-700 dark:text-green-300 p-3 rounded-lg flex items-center gap-2">
+          <CheckCircle className="h-5 w-5 flex-shrink-0" />
+          <p className="text-sm">{success}</p>
+        </div>
+      )}
+
+      {/* Stats Section */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Deliveries"
+          value={stats.total_deliveries.toString()}
+          icon={<Truck />}
+          color="text-blue-600"
+        />
+        <StatCard
+          title="Total Earnings"
+          value={formatPrice(stats.total_earnings)}
+          icon={<DollarSign />}
+          color="text-green-600"
+        />
+        <StatCard
+          title="Avg. Fee / Delivery"
+          value={formatPrice(stats.average_per_delivery)}
+          icon={<Zap />}
+          color="text-yellow-600"
+        />
+        <StatCard
+          title="Active Deliveries"
+          value={myDeliveries
+            .filter((d) => d.status === "accepted" || d.status === "picked_up")
+            .length.toString()}
+          icon={<Clock />}
+          color="text-indigo-600"
+        />
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {error && (
-          <div className="bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 text-red-600 dark:text-red-200 px-4 py-3 rounded-lg mb-6">
-            {error}
+      {/* Assigned Deliveries Section */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+        <div className="flex justify-between items-center mb-4 flex-wrap gap-3">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+            My Assigned Deliveries ({filteredDeliveries.length})
+          </h3>
+          <div className="flex gap-2 items-center">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search delivery..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 py-1.5 border border-gray-300 dark:border-gray-700 rounded-lg dark:bg-gray-700 dark:text-white text-sm w-32 sm:w-48 focus:border-blue-500 focus:ring-blue-500"
+              />
+            </div>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="border border-gray-300 dark:border-gray-700 rounded-lg py-1.5 px-3 dark:bg-gray-700 dark:text-white text-sm focus:border-blue-500 focus:ring-blue-500">
+              {statusOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={fetchMyDeliveries}
+              disabled={loading}
+              className="p-1.5 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50">
+              <RefreshCw className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {loading && myDeliveries.length === 0 ? (
+          <div className="text-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-600" />
+          </div>
+        ) : filteredDeliveries.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredDeliveries.map((delivery) => (
+              <DeliveryCard key={delivery.id} delivery={delivery} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+            No assigned deliveries matching your filter.
+          </div>
+        )}
+      </div>
+
+      {/* Available Orders Section */}
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-lg">
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
+          Available Orders Near You ({availableOrders.length})
+        </h3>
+
+        {userLocation ? (
+          <div className="flex gap-4 mb-4 items-center">
+            <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
+              <MapPin className="h-4 w-4 text-red-500" />
+              Current Location: {userLocation.lat.toFixed(4)},{" "}
+              {userLocation.lng.toFixed(4)}
+            </p>
+            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+              <Filter className="h-4 w-4" />
+              Radius:
+              <select
+                value={selectedRadius}
+                onChange={(e) => setSelectedRadius(Number(e.target.value))}
+                className="border border-gray-300 dark:border-gray-700 rounded-lg py-1 px-2 dark:bg-gray-700 dark:text-white text-sm">
+                {[5, 10, 20, 50].map((r) => (
+                  <option key={r} value={r}>
+                    {r} km
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              onClick={fetchAvailableOrders}
+              disabled={loading}
+              className="p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm flex items-center gap-1 disabled:opacity-50">
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Refresh
+            </button>
+          </div>
+        ) : (
+          <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+            {locationError ||
+              "Waiting for location access to show nearby orders..."}
           </div>
         )}
 
-        {/* Statistics Cards */}
-        <div className="grid md:grid-cols-5 gap-6 mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <Package className="h-8 w-8 text-blue-600" />
-              <span className="text-sm text-green-600 font-medium">Total</span>
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {stats.totalDeliveries || 0}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">Deliveries</p>
+        {loading && availableOrders.length === 0 ? (
+          <div className="text-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin mx-auto text-blue-600" />
           </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-              <span className="text-sm text-green-600 font-medium">Today</span>
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {stats.completedToday || 0}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">Completed</p>
+        ) : availableOrders.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {availableOrders.map((order) => (
+              <AvailableOrderCard key={order.id} order={order} />
+            ))}
           </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <Clock className="h-8 w-8 text-orange-600" />
-              <span className="text-sm text-orange-600 font-medium">
-                Active
-              </span>
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {stats.pendingDeliveries || 0}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">Pending</p>
+        ) : (
+          <div className="text-center py-6 text-gray-500 dark:text-gray-400">
+            No orders are currently available for pickup near you (within{" "}
+            {selectedRadius}km).
           </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <DollarSign className="h-8 w-8 text-yellow-600" />
-              <span className="text-sm text-green-600 font-medium">+15%</span>
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-              £{stats.totalEarnings || 0}
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">Earnings</p>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <Star className="h-8 w-8 text-purple-600" />
-              <span className="text-sm text-gray-500">
-                {stats.totalReviews || 0} reviews
-              </span>
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {stats.avgRating || 0}/5
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">Rating</p>
-          </div>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Available Orders */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <Zap className="h-5 w-5 text-yellow-500" />
-                Available Orders ({availableOrders.length})
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Orders ready for pickup within {selectedRadius}km
-              </p>
-            </div>
-
-            <div className="p-6 max-h-96 overflow-y-auto">
-              {loading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Loading orders...
-                  </p>
-                </div>
-              ) : availableOrders.length === 0 ? (
-                <div className="text-center py-12">
-                  <Package className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                  <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    No orders available
-                  </h4>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    Check back later or try increasing your radius
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {availableOrders.map((order) => (
-                    <div
-                      key={order.id}
-                      className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 dark:text-white mb-1">
-                            {order.product?.name}
-                          </h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Order #{order.id} • {order.shop?.name}
-                          </p>
-                        </div>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                            order.status
-                          )}`}>
-                          {order.status?.replace("_", " ").toUpperCase()}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          {userLocation &&
-                          order.shop?.latitude &&
-                          order.shop?.longitude
-                            ? `${calculateDistance(
-                                userLocation.lat,
-                                userLocation.lng,
-                                order.shop.latitude,
-                                order.shop.longitude
-                              )}km away`
-                            : "Distance unknown"}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4" />£
-                          {order.delivery_fee || "5.00"}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Package className="h-4 w-4" />
-                          {order.quantity} item(s)
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4" />
-                          {order.estimated_time || "30"} mins
-                        </div>
-                      </div>
-
-                      <div className="mb-3">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                          Delivery Address:
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {order.delivery_address ||
-                            "Address will be provided after acceptance"}
-                        </p>
-                      </div>
-
-                      <button
-                        onClick={() => handleAcceptDelivery(order.id)}
-                        className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2">
-                        <CheckCircle className="h-4 w-4" />
-                        Accept Delivery
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* My Deliveries */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Truck className="h-5 w-5 text-blue-500" />
-                  My Deliveries ({myDeliveries.length})
-                </h3>
-              </div>
-
-              {/* Search and Filter */}
-              <div className="flex flex-col sm:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search deliveries..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
-                </div>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                  <option value="all">All Status</option>
-                  <option value="accepted">Accepted</option>
-                  <option value="in_transit">In Transit</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="p-6 max-h-96 overflow-y-auto">
-              {filteredDeliveries.length === 0 ? (
-                <div className="text-center py-12">
-                  <Truck className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                  <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                    {myDeliveries.length === 0
-                      ? "No deliveries yet"
-                      : "No deliveries found"}
-                  </h4>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    {myDeliveries.length === 0
-                      ? "Accept your first delivery to get started"
-                      : "Try adjusting your search or filter criteria"}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {filteredDeliveries.map((delivery) => (
-                    <div
-                      key={delivery.id}
-                      className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 dark:text-white mb-1">
-                            {delivery.order?.product?.name}
-                          </h4>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">
-                            Order #{delivery.order?.id} • {delivery.shop?.name}
-                          </p>
-                        </div>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
-                            delivery.status
-                          )}`}>
-                          {delivery.status?.replace("_", " ").toUpperCase()}
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400 mb-4">
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4" />
-                          {delivery.customer?.name || "Customer"}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4" />£
-                          {delivery.delivery_fee || "5.00"}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Phone className="h-4 w-4" />
-                          {delivery.customer?.phone || "N/A"}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Timer className="h-4 w-4" />
-                          {new Date(delivery.created_at).toLocaleDateString()}
-                        </div>
-                      </div>
-
-                      <div className="mb-4">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                          Delivery Address:
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {delivery.delivery_address || "Address not provided"}
-                        </p>
-                      </div>
-
-                      {/* Action buttons based on status */}
-                      {delivery.status === "accepted" && (
-                        <button
-                          onClick={() =>
-                            handleUpdateDeliveryStatus(
-                              delivery.id,
-                              "in_transit"
-                            )
-                          }
-                          className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2">
-                          <Route className="h-4 w-4" />
-                          Start Delivery
-                        </button>
-                      )}
-
-                      {delivery.status === "in_transit" && (
-                        <div className="grid grid-cols-2 gap-3">
-                          <button
-                            onClick={() =>
-                              handleUpdateDeliveryStatus(
-                                delivery.id,
-                                "delivered"
-                              )
-                            }
-                            className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2">
-                            <CheckCircle className="h-4 w-4" />
-                            Mark Delivered
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleUpdateDeliveryStatus(
-                                delivery.id,
-                                "cancelled"
-                              )
-                            }
-                            className="bg-red-600 text-white py-2 px-4 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2">
-                            <AlertCircle className="h-4 w-4" />
-                            Cancel
-                          </button>
-                        </div>
-                      )}
-
-                      {delivery.status === "delivered" && (
-                        <div className="bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded-lg p-3">
-                          <div className="flex items-center gap-2 text-green-700 dark:text-green-200">
-                            <CheckCircle className="h-4 w-4" />
-                            <span className="text-sm font-medium">
-                              Delivery completed
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Nearby Shops */}
-        <div className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-red-500" />
-              Nearby Shops ({nearbyShops.length})
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Shops within {selectedRadius}km of your location
-            </p>
-          </div>
-
-          <div className="p-6">
-            {nearbyShops.length === 0 ? (
-              <div className="text-center py-12">
-                <MapPin className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                  No nearby shops found
-                </h4>
-                <p className="text-gray-600 dark:text-gray-400">
-                  Try increasing your search radius or check back later
-                </p>
-              </div>
-            ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {nearbyShops.map((shop) => (
-                  <div
-                    key={shop.id}
-                    className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 hover:shadow-md transition-shadow">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h4 className="font-medium text-gray-900 dark:text-white mb-1">
-                          {shop.name}
-                        </h4>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                          {shop.description}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4" />
-                        {userLocation && shop.latitude && shop.longitude
-                          ? `${calculateDistance(
-                              userLocation.lat,
-                              userLocation.lng,
-                              shop.latitude,
-                              shop.longitude
-                            )}km away`
-                          : "Distance unknown"}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="h-4 w-4" />
-                        {shop.phone}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4" />
-                        {shop.email}
-                      </div>
-                    </div>
-
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
-                      <p className="line-clamp-2">{shop.address}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
 };
+
+// Helper component for statistics display
+const StatCard: React.FC<{
+  title: string;
+  value: string;
+  icon: React.ReactElement;
+  color: string;
+}> = ({ title, value, icon, color }) => (
+  <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex items-center justify-between">
+    <div>
+      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+        {title}
+      </p>
+      <p className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+        {value}
+      </p>
+    </div>
+    {React.cloneElement(icon, { className: `h-8 w-8 ${color}` })}
+  </div>
+);
 
 export default DelivererDashboard;

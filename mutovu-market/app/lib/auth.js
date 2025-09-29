@@ -25,6 +25,31 @@ export const authUtils = {
     return null;
   },
 
+  // NEW: Get current authenticated user (validates token and returns user)
+  getCurrentUser: async () => {
+    try {
+      // First check if we have basic auth data
+      if (!authUtils.isAuthenticated()) {
+        return null;
+      }
+
+      // Try to validate the token by fetching fresh profile data
+      const profile = await authUtils.getProfile();
+      
+      // Update stored user data with fresh data
+      if (profile && typeof window !== "undefined") {
+        localStorage.setItem("user", JSON.stringify(profile));
+      }
+      
+      return profile;
+    } catch (error) {
+      // Token is invalid or expired
+      console.error("getCurrentUser error:", error);
+      authUtils.clearAuthData();
+      return null;
+    }
+  },
+
   // Store authentication data
   setAuthData: (tokens, user) => {
     if (typeof window !== "undefined") {

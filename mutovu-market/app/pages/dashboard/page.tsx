@@ -374,7 +374,6 @@ const Dashboard = () => {
                             className="shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full sm:text-sm border-gray-300 rounded-md">
                             <option value="customer">Customer</option>
                             <option value="seller">Seller</option>
-                            <option value="buyer">Buyer</option>
                             <option value="deliverer">Deliverer</option>
                           </select>
                         ) : (
