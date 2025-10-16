@@ -240,22 +240,42 @@ export const shopAPI = {
   getMyShops: () => api.get("/shops/my_shops"),
 
   // Get single shop
-  getShop: (id) => api.get(`/shops/${id}`),
-
-  // Create shop
-  createShop: (data) => api.post("/shops/create_shop", data),
+  getShop: (id: number) => api.get(`/shops/${id}`),
+  createShop: async (data: {
+    name: string;
+    phone: string;
+    email: string;
+    address: string;
+    description?: string;
+    location: {
+      type: string;
+      coordinates: [number, number];
+    };
+  }) => {
+    // Use the create_shop action endpoint
+    return api.post("/shops/create_shop", data);
+  },
 
   // Update shop
-  updateShop: (id, data) => api.put(`/shops/${id}`, data),
+  updateShop: async (shopId: number, data: any) => {
+    return api.patch(`/shops/${shopId}`, data);
+  },
 
-  // Delete shop
-  deleteShop: (id) => api.delete(`/shops/${id}`),
+  // ✅ NEW: Delete shop
+  deleteShop: async (shopId: number) => {
+    return api.delete(`/shops/${shopId}`);
+  },
 
   // Get shop statistics
   getShopStatistics: (id: number) => api.get(`/shops/${id}/statistics`),
 
   // Get nearby shops
-  getNearbyShops: (lat, lng, radius = 5, filters = {}) => {
+  getNearbyShops: (
+    lat: number,
+    lng: number,
+    radius: number = 5,
+    filters: any = {}
+  ) => {
     const params = new URLSearchParams({
       lat: lat.toString(),
       lng: lng.toString(),
@@ -406,7 +426,7 @@ export const productAPI = {
 // Updated orderAPI with better error handling
 export const orderAPI = {
   // Get orders for a shop with improved error handling
-  getShopOrders: (shopId: number, params = {}) => {
+  getShopOrders: (shopId: number, params: any = {}) => {
     // Remove undefined values from params
     const cleanParams = Object.fromEntries(
       Object.entries(params).filter(
@@ -426,7 +446,7 @@ export const orderAPI = {
   },
 
   // Get user's orders
-  getMyOrders: (params = {}) => {
+  getMyOrders: (params: any = {}) => {
     const searchParams = new URLSearchParams(params);
     return api.get(`/orders?${searchParams}`);
   },
@@ -442,7 +462,7 @@ export const orderAPI = {
   getOrder: (id: number) => api.get(`/orders/${id}`),
 
   // Get orders with expanded details
-  getShopOrdersDetailed: (shopId: number, params = {}) => {
+  getShopOrdersDetailed: (shopId: number, params: any = {}) => {
     const searchParams = new URLSearchParams({
       variant__product__shop: shopId.toString(),
       expand: "user,variant,variant__product,variant__size,variant__color", // Request expanded data

@@ -30,6 +30,7 @@ const NextProHeader = () => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showWelcomeNotification, setShowWelcomeNotification] = useState(false);
   const [authCheckLoading, setAuthCheckLoading] = useState(true);
+  const [cartItemCount, setCartItemCount] = useState(0);
 
   // Theme State: 'light' or 'dark'
   const [theme, setTheme] = useState("light");
@@ -74,6 +75,49 @@ const NextProHeader = () => {
     }, 6000);
     return () => clearInterval(timer);
   }, []);
+
+  // Fetch cart item count
+  const fetchCartItemCount = async () => {
+    if (!authUtils.isAuthenticated()) {
+      setCartItemCount(0);
+      return;
+    }
+
+    try {
+      const response = await fetch("http://localhost:8000/api/cart-items", {
+        headers: {
+          Authorization: `Bearer ${authUtils.getToken()}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Sum up quantities from all cart items
+        const totalCount = data.results
+          ? data.results.reduce(
+              (sum: number, item: any) => sum + item.quantity,
+              0
+            )
+          : 0;
+        setCartItemCount(totalCount);
+      }
+    } catch (error) {
+      console.error("Failed to fetch cart count:", error);
+    }
+  };
+
+  // Fetch cart count when auth status changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchCartItemCount();
+
+      // Poll for cart updates every 10 seconds
+      const interval = setInterval(fetchCartItemCount, 10000);
+      return () => clearInterval(interval);
+    } else {
+      setCartItemCount(0);
+    }
+  }, [isAuthenticated]);
 
   const checkAuthStatus = async () => {
     try {
@@ -206,9 +250,11 @@ const NextProHeader = () => {
               <Bell className="h-5 w-5 text-gray-600 dark:text-gray-300 hover:text-coral-500 dark:hover:text-coral-400 cursor-pointer transition-colors" />
               <div className="relative">
                 <ShoppingBag className="h-5 w-5 text-gray-600 dark:text-gray-300 hover:text-coral-500 dark:hover:text-coral-400 cursor-pointer transition-colors" />
-                <span className="absolute -top-2 -right-2 bg-coral-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center text-[10px] font-medium">
-                  2
-                </span>
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-coral-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center text-[10px] font-medium">
+                    {cartItemCount > 99 ? "99+" : cartItemCount}
+                  </span>
+                )}
               </div>
 
               {/* User Dropdown */}

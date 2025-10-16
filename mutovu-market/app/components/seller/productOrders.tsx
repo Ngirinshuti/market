@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
+  MapPin,
 } from "lucide-react";
 import { orderAPI, Order, Shop } from "../../lib/sellerApi";
 
@@ -176,7 +177,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({
   const orderStats = useMemo(() => {
     const totalOrders = orders.length;
     const totalRevenue = orders.reduce(
-      (sum, order) => sum + order.total_price,
+      (sum, order) => sum + parseFloat(order.total_price.toString()),
       0
     );
     const pendingOrders = orders.filter(
@@ -429,10 +430,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      £{order.total_price.toFixed(2)}
+                      £{parseFloat(order.total_price.toString()).toFixed(2)}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400">
-                      £{order.unit_price.toFixed(2)} each
+                      £{parseFloat(order.unit_price.toString()).toFixed(2)} each
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -517,7 +518,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({
       {/* Order Details Modal */}
       {showOrderDetails && selectedOrder && (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                 Order Details #{selectedOrder.id}
@@ -605,7 +606,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({
                         Unit Price:
                       </span>
                       <span className="text-sm text-gray-900 dark:text-white">
-                        £{selectedOrder.unit_price.toFixed(2)}
+                        £
+                        {parseFloat(
+                          selectedOrder.unit_price.toString()
+                        ).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
@@ -613,7 +617,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({
                         Delivery Fee:
                       </span>
                       <span className="text-sm text-gray-900 dark:text-white">
-                        £{selectedOrder.delivery_fee.toFixed(2)}
+                        £
+                        {parseFloat(
+                          selectedOrder.delivery_fee.toString()
+                        ).toFixed(2)}
                       </span>
                     </div>
                     <div className="flex justify-between items-center font-medium text-lg">
@@ -621,7 +628,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({
                         Total:
                       </span>
                       <span className="text-gray-900 dark:text-white">
-                        £{selectedOrder.total_price.toFixed(2)}
+                        £
+                        {parseFloat(
+                          selectedOrder.total_price.toString()
+                        ).toFixed(2)}
                       </span>
                     </div>
                   </div>

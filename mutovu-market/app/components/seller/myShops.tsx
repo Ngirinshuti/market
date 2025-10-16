@@ -23,6 +23,7 @@ import {
   X,
   FileText,
   Home,
+  Save,
 } from "lucide-react";
 import { authUtils } from "../../lib/auth";
 import { shopAPI, Shop } from "../../lib/sellerApi";
@@ -31,7 +32,7 @@ import { shopAPI, Shop } from "../../lib/sellerApi";
 // DYNAMIC IMPORTS
 // ============================================================================
 
-const MapPicker = dynamic(() => import("../shop/MapPicker"), {
+const GoogleMapPicker = dynamic(() => import("../shop/GoogleMapPicker"), {
   ssr: false,
   loading: () => (
     <div className="h-96 w-full bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
@@ -50,8 +51,10 @@ const MapPicker = dynamic(() => import("../shop/MapPicker"), {
 // ============================================================================
 
 interface MyShopsProps {
-  onShopSelect?: (shopId: number) => void;
+  onShopSelect?: (shopId: number | null) => void; // CHANGED: Added | null to match how it's used in DashboardLayout
   selectedShopId?: number | null;
+  // REMOVED: autoOpenCreate?: boolean; // No longer needed
+  onCreateShopClick?: (openFn: () => void) => void; // ADDED: New prop to pass the modal opener back
 }
 
 interface ShopDetailProps {
@@ -314,7 +317,10 @@ const LocationPicker: React.FC<{
     </div>
 
     <div className="h-96 w-full rounded-lg shadow-inner border border-gray-200 dark:border-gray-600 overflow-hidden">
-      <MapPicker onLocationChange={onLocationChange} />
+      <GoogleMapPicker
+        onLocationChange={onLocationChange}
+        initialLocation={location || { lat: -1.9441, lng: 30.0588 }}
+      />
     </div>
 
     {!location && (
@@ -728,22 +734,6 @@ const ShopDetail: React.FC<ShopDetailProps> = ({
             <Edit className="w-4 h-4 mr-2" />
             {isEditing ? "Cancel Edit" : "Edit Shop"}
           </button>
-
-          {/* <button
-            onClick={handleStatusToggle}
-            disabled={loading}
-            className={`px-4 py-2 text-sm font-medium rounded-lg transition flex items-center disabled:opacity-50 ${
-              shop.is_active
-                ? "bg-red-500 text-white hover:bg-red-600"
-                : "bg-green-500 text-white hover:bg-green-600"
-            }`}>
-            {shop.is_active ? (
-              <Lock className="w-4 h-4 mr-2" />
-            ) : (
-              <Unlock className="w-4 h-4 mr-2" />
-            )}
-            {shop.is_active ? "Deactivate" : "Activate"}
-          </button> */}
         </div>
       </div>
 
@@ -779,20 +769,8 @@ const ShopDetail: React.FC<ShopDetailProps> = ({
               onLocationChange={handleLocationChange}
             />
 
-            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <button
-                type="button"
-                onClick={handleDelete}
-                disabled={loading}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-red-400 rounded-lg flex items-center transition">
-                {loading ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Trash2 className="w-4 h-4 mr-2" />
-                )}
-                Delete Shop
-              </button>
-
+            {/* Update Button Within Form */}
+            <div className="flex justify-center pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 type="submit"
                 disabled={
@@ -803,19 +781,40 @@ const ShopDetail: React.FC<ShopDetailProps> = ({
                   !formData.email ||
                   !formData.address
                 }
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg flex items-center transition">
+                className="px-6 py-3 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg flex items-center transition shadow-sm">
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Saving...
+                    Updating...
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Save Changes
+                    <Save className="w-4 h-4 mr-2" />
+                    Update Shop
                   </>
                 )}
               </button>
+            </div>
+
+            {/* Danger Zone */}
+            <div className="mt-8 pt-6 border-t-2 border-red-200 dark:border-red-800">
+              <h4 className="text-lg font-medium text-red-700 dark:text-red-400 mb-4">
+                Danger Zone
+              </h4>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={loading}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-red-400 rounded-lg flex items-center transition">
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-4 h-4 mr-2" />
+                  )}
+                  Delete Shop
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -964,13 +963,30 @@ const ShopListItem: React.FC<{
 // MAIN COMPONENT
 // ============================================================================
 
-const MyShops: React.FC<MyShopsProps> = ({ onShopSelect, selectedShopId }) => {
+const MyShops: React.FC<MyShopsProps> = ({
+  onShopSelect,
+  selectedShopId,
+  // REMOVED: autoOpenCreate = false,
+  onCreateShopClick, // ADDED: New prop
+}) => {
   // State management
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false); // USED TO OPEN MODAL
+
+  // Effect to pass the open modal function back to the parent
+  useEffect(() => {
+    if (onCreateShopClick) {
+      console.log("MyShops: Registering modal opener with parent");
+      // Pass a stable function that opens the modal
+      onCreateShopClick(() => {
+        console.log("MyShops: Modal opener called, opening modal");
+        setIsCreateModalOpen(true);
+      });
+    }
+  }, [onCreateShopClick]);
 
   // Fetch shops data
   const fetchShops = useCallback(async () => {
@@ -1061,10 +1077,15 @@ const MyShops: React.FC<MyShopsProps> = ({ onShopSelect, selectedShopId }) => {
   }, [fetchShops]);
 
   // Event handlers
-  const handleCreateSuccess = useCallback((newShop: Shop) => {
-    setShops((prev) => [newShop, ...prev]);
-    setIsCreateModalOpen(false);
-  }, []);
+  const handleCreateSuccess = useCallback(
+    (newShop: Shop) => {
+      setShops((prev) => [newShop, ...prev]);
+      setIsCreateModalOpen(false);
+      // Select the newly created shop
+      if (onShopSelect) onShopSelect(newShop.id);
+    },
+    [onShopSelect]
+  );
 
   const handleUpdateShop = useCallback((updatedShop: Shop) => {
     setShops((prev) =>

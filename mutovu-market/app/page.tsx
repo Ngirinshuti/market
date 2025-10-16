@@ -1,9 +1,9 @@
-import LandingPage from "./components/home/LandingPage";
+import EcommerceShop from "@/app/components/home/LandingPage";
 
 export default function Home() {
   return (
-<div>
-    <LandingPage />
-</div>
+    <div>
+      <EcommerceShop />
+    </div>
   );
 }

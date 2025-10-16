@@ -1,7 +1,8 @@
-// app/pages/deliverer/dashboard/page.tsx
+// app/pages/deliverer/dashboard/page.tsx (FULLY FIXED)
 "use client";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import GoogleMapPicker from "../../../components/shop/GoogleMapPicker";
 import {
   MapPin,
   Package,
@@ -15,20 +16,17 @@ import {
   Loader2,
   AlertCircle,
   ThumbsUp,
-  XCircle,
   Calendar,
   Zap,
 } from "lucide-react";
 
-// Assuming you have an auth utility, ensure the import is correct (e.g., default import)
 import { authUtils } from "../../../lib/auth";
 import { delivererAPI } from "../../../lib/delivererApi";
 import {
   Delivery,
   OrderAvailable,
   DelivererStats,
-  User, // Now correctly imported from delivererTypes.ts
-  calculateDistance,
+  User,
   formatPrice,
 } from "../../../lib/delivererTypes";
 
@@ -47,9 +45,10 @@ const DelivererDashboard = () => {
     lng: number;
   } | null>(null);
   const [locationError, setLocationError] = useState("");
-  const [selectedRadius, setSelectedRadius] = useState(10); // km
+  const [selectedRadius, setSelectedRadius] = useState(10);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [stats, setStats] = useState<DelivererStats>({
     period: "all",
     total_earnings: 0,
@@ -66,6 +65,25 @@ const DelivererDashboard = () => {
     { value: "cancelled", label: "Cancelled" },
   ];
 
+  const StatCard: React.FC<{
+    title: string;
+    value: string;
+    icon: React.ReactElement;
+    color: string;
+  }> = ({ title, value, icon, color }) => (
+    <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+          {title}
+        </p>
+        <p className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
+          {value}
+        </p>
+      </div>
+      {React.cloneElement(icon, { className: `h-8 w-8 ${color}` })}
+    </div>
+  );
+
   // --- Fetching Logic ---
   const fetchStats = useCallback(async () => {
     try {
@@ -77,7 +95,12 @@ const DelivererDashboard = () => {
   }, []);
 
   const fetchAvailableOrders = useCallback(async () => {
-    if (!userLocation) return;
+    if (!userLocation) {
+      setError(
+        "Location not set. Please enable location services or use the map picker."
+      );
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -87,7 +110,13 @@ const DelivererDashboard = () => {
         selectedRadius
       );
       setAvailableOrders(orders);
+      if (orders.length === 0) {
+        setError(
+          `No orders available within ${selectedRadius}km of your location.`
+        );
+      }
     } catch (err: any) {
+      console.error("Error fetching orders:", err);
       setError("Failed to fetch available orders.");
       setAvailableOrders([]);
     } finally {
@@ -102,6 +131,7 @@ const DelivererDashboard = () => {
       const deliveries = await delivererAPI.getMyDeliveries(statusFilter);
       setMyDeliveries(deliveries);
     } catch (err: any) {
+      console.error("Error fetching deliveries:", err);
       setError("Failed to fetch assigned deliveries.");
       setMyDeliveries([]);
     } finally {
@@ -112,12 +142,10 @@ const DelivererDashboard = () => {
   // --- Location and Initial Load ---
   useEffect(() => {
     const checkAuth = async () => {
-      // Corrected usage of authUtils
       const authenticatedUser = await authUtils.getCurrentUser();
       if (!authenticatedUser) {
         router.push("/pages/login");
       } else {
-        // Cast or assume correct type based on authUtils return
         setUser(authenticatedUser as User);
         setAuthCheckLoading(false);
       }
@@ -130,20 +158,48 @@ const DelivererDashboard = () => {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
-            setUserLocation({
+            const newLocation = {
               lat: position.coords.latitude,
               lng: position.coords.longitude,
+            };
+            setUserLocation(newLocation);
+            setLocationError("");
+          },
+          (err: GeolocationPositionError) => {
+            let errorMessage =
+              "Could not retrieve your location. Use the map picker below.";
+
+            switch (err.code) {
+              case err.PERMISSION_DENIED:
+                errorMessage =
+                  "Location permission denied. Click 'Use Map Picker' to set your location manually.";
+                break;
+              case err.POSITION_UNAVAILABLE:
+                errorMessage =
+                  "Location service unavailable. Click 'Use Map Picker' to set your location manually.";
+                break;
+              case err.TIMEOUT:
+                errorMessage =
+                  "Location request timed out. Click 'Use Map Picker' to set your location manually.";
+                break;
+            }
+
+            setLocationError(errorMessage);
+            console.error("Geolocation Error:", {
+              code: err.code,
+              message: err.message,
             });
           },
-          (err) => {
-            setLocationError(
-              "Geolocation failed. Orders will not be location-filtered."
-            );
-            console.error(err);
+          {
+            enableHighAccuracy: false,
+            timeout: 10000,
+            maximumAge: 300000,
           }
         );
       } else {
-        setLocationError("Geolocation is not supported by this browser.");
+        setLocationError(
+          "Geolocation not supported. Click 'Use Map Picker' to set your location manually."
+        );
       }
     }
   }, [user, userLocation]);
@@ -161,13 +217,14 @@ const DelivererDashboard = () => {
     }
   }, [userLocation, selectedRadius, fetchAvailableOrders]);
 
-  // --- Filtering Logic ---
+  // ✅ FIXED: Updated to use order_details instead of order
   const filteredDeliveries = useMemo(() => {
     return myDeliveries.filter((delivery) => {
+      // Safely access nested properties with optional chaining
       const productName =
-        delivery.order?.variant_details?.product_details?.name?.toLowerCase() ||
+        delivery.order_details?.variant_details?.product_details?.name?.toLowerCase() ||
         "";
-      const orderId = delivery.order?.id.toString() || "";
+      const orderId = delivery.order_details?.id?.toString() || "";
 
       const matchesSearch =
         productName.includes(searchTerm.toLowerCase()) ||
@@ -229,7 +286,14 @@ const DelivererDashboard = () => {
     }
   };
 
-  // --- Component Rendering (Rest of the UI remains the same) ---
+  const handleMapLocationChange = (lat: number | null, lng: number | null) => {
+    if (lat !== null && lng !== null) {
+      setUserLocation({ lat, lng });
+      setLocationError("");
+      setShowMapPicker(false);
+    }
+  };
+
   if (authCheckLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -238,80 +302,94 @@ const DelivererDashboard = () => {
     );
   }
 
-  const DeliveryCard: React.FC<{ delivery: Delivery }> = ({ delivery }) => (
-    <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-      <div className="flex justify-between items-center mb-2">
-        <h4 className="text-md font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <Truck className="h-5 w-5 text-purple-500" />
-          Delivery #{delivery.id}
-        </h4>
-        <span
-          className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
-            delivery.status === "delivered"
-              ? "bg-green-100 text-green-800"
-              : delivery.status === "picked_up"
-              ? "bg-indigo-100 text-indigo-800"
-              : "bg-yellow-100 text-yellow-800"
-          }`}>
-          {delivery.status.charAt(0).toUpperCase() +
-            delivery.status.slice(1).replace("_", " ")}
-        </span>
-      </div>
+  // ✅ FIXED: Updated DeliveryCard to use order_details
+  const DeliveryCard: React.FC<{ delivery: Delivery }> = ({ delivery }) => {
+    // Safely extract data with fallbacks
+    const orderDetails = delivery.order_details;
+    const productName =
+      orderDetails?.variant_details?.product_details?.name || "Unknown Product";
+    const shopName =
+      orderDetails?.variant_details?.product_details?.shop?.name ||
+      "Unknown Shop";
 
-      <p className="text-sm text-gray-600 dark:text-gray-400">
-        Order: #{delivery.order.id} | Product:{" "}
-        {delivery.order.variant_details.product_details.name}
-      </p>
-      <p className="text-lg font-bold text-green-600 dark:text-green-400 my-1">
-        {formatPrice(delivery.delivery_fee)} Fee
-      </p>
+    return (
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+        <div className="flex justify-between items-center mb-2">
+          <h4 className="text-md font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+            <Truck className="h-5 w-5 text-purple-500" />
+            Delivery #{delivery.id}
+          </h4>
+          <span
+            className={`text-xs font-medium px-2.5 py-0.5 rounded-full ${
+              delivery.status === "delivered"
+                ? "bg-green-100 text-green-800"
+                : delivery.status === "picked_up"
+                ? "bg-indigo-100 text-indigo-800"
+                : "bg-yellow-100 text-yellow-800"
+            }`}>
+            {delivery.status.charAt(0).toUpperCase() +
+              delivery.status.slice(1).replace("_", " ")}
+          </span>
+        </div>
 
-      <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-2">
-        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-          <MapPin className="h-4 w-4 mr-2 text-blue-500" />
-          <span className="font-medium">Pickup:</span>{" "}
-          {delivery.pickup_address.split(",")[0]}...
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Order: #{orderDetails?.id || "N/A"} | Product: {productName}
+        </p>
+        <p className="text-lg font-bold text-green-600 dark:text-green-400 my-1">
+          {formatPrice(delivery.delivery_fee)} Fee
+        </p>
+
+        <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 space-y-2">
+          <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+            <MapPin className="h-4 w-4 mr-2 text-blue-500" />
+            <span className="font-medium">Pickup ({shopName}):</span>{" "}
+            {delivery.pickup_address.split(",")[0]}...
+          </div>
+          <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+            <MapPin className="h-4 w-4 mr-2 text-red-500" />
+            <span className="font-medium">Deliver:</span>{" "}
+            {delivery.delivery_address.split(",")[0]}...
+          </div>
+          <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
+            <Clock className="h-4 w-4 mr-2 text-gray-500" />
+            <span className="font-medium">Est. Time:</span>{" "}
+            {delivery.estimated_time} mins
+          </div>
         </div>
-        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-          <MapPin className="h-4 w-4 mr-2 text-red-500" />
-          <span className="font-medium">Deliver:</span>{" "}
-          {delivery.delivery_address.split(",")[0]}...
-        </div>
-        <div className="flex items-center text-sm text-gray-700 dark:text-gray-300">
-          <Clock className="h-4 w-4 mr-2 text-gray-500" />
-          <span className="font-medium">Est. Time:</span>{" "}
-          {delivery.estimated_time} mins
+
+        <div className="mt-4 flex gap-2">
+          {delivery.status === "accepted" && (
+            <button
+              onClick={() =>
+                handleUpdateDeliveryStatus(delivery.id, "picked_up")
+              }
+              disabled={loading}
+              className="flex-1 bg-blue-600 text-white text-sm py-1.5 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Mark as Picked Up"
+              )}
+            </button>
+          )}
+          {delivery.status === "picked_up" && (
+            <button
+              onClick={() =>
+                handleUpdateDeliveryStatus(delivery.id, "delivered")
+              }
+              disabled={loading}
+              className="flex-1 bg-green-600 text-white text-sm py-1.5 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                "Mark as Delivered"
+              )}
+            </button>
+          )}
         </div>
       </div>
-
-      <div className="mt-4 flex gap-2">
-        {delivery.status === "accepted" && (
-          <button
-            onClick={() => handleUpdateDeliveryStatus(delivery.id, "picked_up")}
-            disabled={loading}
-            className="flex-1 bg-blue-600 text-white text-sm py-1.5 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50">
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Mark as Picked Up"
-            )}
-          </button>
-        )}
-        {delivery.status === "picked_up" && (
-          <button
-            onClick={() => handleUpdateDeliveryStatus(delivery.id, "delivered")}
-            disabled={loading}
-            className="flex-1 bg-green-600 text-white text-sm py-1.5 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50">
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              "Mark as Delivered"
-            )}
-          </button>
-        )}
-      </div>
-    </div>
-  );
+    );
+  };
 
   const AvailableOrderCard: React.FC<{ order: OrderAvailable }> = ({
     order,
@@ -338,7 +416,7 @@ const DelivererDashboard = () => {
         </p>
         <p>
           <Truck className="h-4 w-4 inline mr-1" />
-          Delivery to: {order.user?.address?.split(",")[0]}...
+          Delivery to: {order.user?.address?.split(",")[0]}
         </p>
       </div>
 
@@ -466,7 +544,7 @@ const DelivererDashboard = () => {
         </h3>
 
         {userLocation ? (
-          <div className="flex gap-4 mb-4 items-center">
+          <div className="flex gap-4 mb-4 items-center flex-wrap">
             <p className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
               <MapPin className="h-4 w-4 text-red-500" />
               Current Location: {userLocation.lat.toFixed(4)},{" "}
@@ -497,11 +575,44 @@ const DelivererDashboard = () => {
               )}
               Refresh
             </button>
+            <button
+              onClick={() => setShowMapPicker(true)}
+              className="p-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm flex items-center gap-1">
+              <MapPin className="h-4 w-4" />
+              Change Location
+            </button>
           </div>
         ) : (
-          <div className="text-center py-4 text-gray-500 dark:text-gray-400">
-            {locationError ||
-              "Waiting for location access to show nearby orders..."}
+          <div className="text-center py-4 text-gray-500 dark:text-gray-400 mb-4">
+            <p className="mb-3">{locationError || "No location set yet."}</p>
+            <button
+              onClick={() => setShowMapPicker(true)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              Use Map Picker
+            </button>
+          </div>
+        )}
+
+        {/* Map Picker Modal */}
+        {showMapPicker && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Select Your Location
+                </h3>
+                <button
+                  onClick={() => setShowMapPicker(false)}
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                  ✕
+                </button>
+              </div>
+              <GoogleMapPicker
+                onLocationChange={handleMapLocationChange}
+                initialLocation={userLocation || undefined}
+                height="500px"
+              />
+            </div>
           </div>
         )}
 
@@ -517,33 +628,14 @@ const DelivererDashboard = () => {
           </div>
         ) : (
           <div className="text-center py-6 text-gray-500 dark:text-gray-400">
-            No orders are currently available for pickup near you (within{" "}
-            {selectedRadius}km).
+            {userLocation
+              ? `No orders are currently available for pickup near you (within ${selectedRadius}km).`
+              : "Set your location to see available orders."}
           </div>
         )}
       </div>
     </div>
   );
 };
-
-// Helper component for statistics display
-const StatCard: React.FC<{
-  title: string;
-  value: string;
-  icon: React.ReactElement;
-  color: string;
-}> = ({ title, value, icon, color }) => (
-  <div className="bg-white dark:bg-gray-800 p-5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 flex items-center justify-between">
-    <div>
-      <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-        {title}
-      </p>
-      <p className="text-2xl font-semibold text-gray-900 dark:text-white mt-1">
-        {value}
-      </p>
-    </div>
-    {React.cloneElement(icon, { className: `h-8 w-8 ${color}` })}
-  </div>
-);
 
 export default DelivererDashboard;

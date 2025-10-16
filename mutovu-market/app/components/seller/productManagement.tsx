@@ -1,153 +1,917 @@
-// components/ProductManagement.tsx - Enhanced with Variant Management
-"use client";
+import React, { useState, useEffect } from "react";
 
-import React, { useState, useEffect, useMemo } from "react";
-import {
-  Package,
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  Eye,
-  EyeOff,
-  Loader2,
-  AlertCircle,
-  CheckCircle,
-  X,
-  Settings,
-  ShoppingCart,
-  DollarSign,
-  Palette,
-  Ruler,
-  Save,
-  ArrowLeft,
-} from "lucide-react";
-import {
-  productAPI,
-  Product,
-  ProductVariant,
-  Size,
-  Color,
-  Category,
-  Brand,
-} from "../../lib/sellerApi";
+// SVG Icons
+const Plus = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+);
 
-interface ProductManagementProps {
-  selectedShopId: number | null;
-}
+const X = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <path d="M18 6L6 18M6 6l12 12" />
+  </svg>
+);
 
-interface ProductFormData {
-  name: string;
-  shop: number;
-  description: string;
-  brand: number | null;
-  category: number | null;
-  is_active: boolean;
-  available_sizes: number[];
-  available_colors: number[];
-}
+const Edit = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+    <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+  </svg>
+);
 
-interface VariantFormData {
-  size: number;
-  color: number;
+const Trash = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6" />
+  </svg>
+);
+
+const Save = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" />
+    <path d="M17 21v-8H7v8M7 3v5h8" />
+  </svg>
+);
+
+const CheckCircle = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+    <path d="M22 4L12 14.01l-3-3" />
+  </svg>
+);
+
+const AlertCircle = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 8v4M12 16h.01" />
+  </svg>
+);
+
+const Loader2 = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    className="animate-spin">
+    <path d="M21 12a9 9 0 11-6.219-8.56" />
+  </svg>
+);
+
+const Package = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <path d="M16.5 9.4l-9-5.19M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+  </svg>
+);
+
+const Search = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <circle cx="11" cy="11" r="8" />
+    <path d="M21 21l-4.35-4.35" />
+  </svg>
+);
+
+const PlusCircle = () => (
+  <svg
+    width="18"
+    height="18"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 8v8M8 12h8" />
+  </svg>
+);
+
+const Upload = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
+  </svg>
+);
+
+const ChevronRight = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <path d="M9 18l6-6-6-6" />
+  </svg>
+);
+
+const ChevronLeft = () => (
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2">
+    <path d="M15 18l-6-6 6-6" />
+  </svg>
+);
+
+const API_BASE = "http://localhost:8000/api";
+
+const productAPI = {
+  getShopProducts: async (shopId: number, token: string) => {
+    const res = await fetch(`${API_BASE}/products?shop=${shopId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("Failed to fetch products");
+    return await res.json();
+  },
+  getProductVariants: async (productId: number, token: string) => {
+    const res = await fetch(
+      `${API_BASE}/product-variants?product=${productId}`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+    if (!res.ok) throw new Error("Failed to fetch variants");
+    return await res.json();
+  },
+  getCategories: async () => {
+    const res = await fetch(`${API_BASE}/categories`);
+    return await res.json();
+  },
+  getBrands: async () => {
+    const res = await fetch(`${API_BASE}/brands`);
+    return await res.json();
+  },
+  getSizes: async () => {
+    const res = await fetch(`${API_BASE}/sizes`);
+    return await res.json();
+  },
+  getColors: async () => {
+    const res = await fetch(`${API_BASE}/colors`);
+    return await res.json();
+  },
+  createProduct: async (data: any, token: string) => {
+    const res = await fetch(`${API_BASE}/products`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(
+        error.detail || error.message || "Failed to create product"
+      );
+    }
+    return await res.json();
+  },
+  updateProduct: async (id: number, data: any, token: string) => {
+    const res = await fetch(`${API_BASE}/products/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(
+        error.detail || error.message || "Failed to update product"
+      );
+    }
+    return await res.json();
+  },
+  deleteProduct: async (id: number, token: string) => {
+    const res = await fetch(`${API_BASE}/products/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error("Failed to delete product");
+    return res;
+  },
+  createVariant: async (data: any, token: string) => {
+    const res = await fetch(`${API_BASE}/product-variants`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(JSON.stringify(error) || "Failed to create variant");
+    }
+    return await res.json();
+  },
+  updateVariant: async (id: number, data: any, token: string) => {
+    const res = await fetch(`${API_BASE}/product-variants/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(JSON.stringify(error) || "Failed to update variant");
+    }
+    return await res.json();
+  },
+  uploadProductImages: async (
+    productId: number,
+    formData: FormData,
+    token: string
+  ) => {
+    const res = await fetch(`${API_BASE}/products/${productId}/upload_images`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+      body: formData,
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(
+        error.detail || error.message || "Failed to upload images"
+      );
+    }
+    return await res.json();
+  },
+  createBrand: async (data: any, token: string) => {
+    const res = await fetch(`${API_BASE}/brands`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.message || "Failed to create brand");
+    }
+    return await res.json();
+  },
+  createSize: async (data: any, token: string) => {
+    const res = await fetch(`${API_BASE}/sizes`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.message || "Failed to create size");
+    }
+    return await res.json();
+  },
+  createColor: async (data: any, token: string) => {
+    const res = await fetch(`${API_BASE}/colors`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.message || "Failed to create color");
+    }
+    return await res.json();
+  },
+};
+
+const RadioSelect = ({
+  label,
+  options,
+  value,
+  onChange,
+  onCreateNew,
+  placeholder = "Search...",
+  required = false,
+  disabled = false,
+}: any) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+
+  const filteredOptions = options.filter((opt: any) =>
+    opt.label.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const selectedOption = options.find((opt: any) => opt.value === value);
+
+  return (
+    <div className="relative">
+      {label && (
+        <label className="block text-sm font-medium mb-1">
+          {label} {required && <span className="text-red-500">*</span>}
+        </label>
+      )}
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => !disabled && setIsOpen(!isOpen)}
+          disabled={disabled}
+          className="w-full px-3 py-2 border rounded text-left bg-white flex items-center justify-between text-sm disabled:bg-gray-100 disabled:text-gray-500">
+          <span className={selectedOption ? "" : "text-gray-400"}>
+            {selectedOption ? selectedOption.label : placeholder}
+          </span>
+          <Search />
+        </button>
+
+        {isOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setIsOpen(false)}
+            />
+            <div className="absolute z-50 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-64 overflow-hidden">
+              <div className="p-2 border-b">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Type to search..."
+                  className="w-full px-3 py-2 border rounded text-sm"
+                  autoFocus
+                />
+              </div>
+
+              <div className="overflow-y-auto max-h-48">
+                {filteredOptions.length > 0 ? (
+                  filteredOptions.map((opt: any) => (
+                    <label
+                      key={opt.value}
+                      className="flex items-center gap-3 px-4 py-2 hover:bg-blue-50 cursor-pointer">
+                      <input
+                        type="radio"
+                        name={label}
+                        checked={value === opt.value}
+                        onChange={() => {
+                          onChange(opt.value);
+                          setIsOpen(false);
+                          setSearchTerm("");
+                        }}
+                        className="rounded-full"
+                      />
+                      {opt.color && (
+                        <span
+                          className="w-4 h-4 rounded-full border"
+                          style={{ backgroundColor: opt.color }}
+                        />
+                      )}
+                      <span className="text-sm">{opt.label}</span>
+                    </label>
+                  ))
+                ) : (
+                  <div className="px-4 py-3 text-sm text-gray-500 text-center">
+                    No results found
+                  </div>
+                )}
+              </div>
+
+              {onCreateNew && searchTerm && filteredOptions.length === 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onCreateNew(searchTerm);
+                    setIsOpen(false);
+                    setSearchTerm("");
+                  }}
+                  className="w-full px-4 py-2 border-t bg-blue-50 hover:bg-blue-100 text-blue-700 flex items-center justify-center gap-2 text-sm font-medium">
+                  <PlusCircle />
+                  Create "{searchTerm}"
+                </button>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+interface Variant {
+  id?: number;
+  size: number | null;
+  color: number | null;
   price: string;
   quantity: number;
   sku: string;
-  description: string;
   is_active: boolean;
 }
 
-const ProductManagement: React.FC<ProductManagementProps> = ({
+interface ProductImage {
+  type: "front" | "back" | "side" | "aerial";
+  file: File | null;
+  preview: string | null;
+}
+
+const Step1ProductInfo = ({
+  formData,
+  setFormData,
+  categories,
+  brands,
+  createNewBrand,
+}: any) => {
+  const categoryOptions = categories.map((c: any) => ({
+    label: c.category_name,
+    value: c.id,
+  }));
+  const brandOptions = brands.map((b: any) => ({
+    label: b.brand_name,
+    value: b.id,
+  }));
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold border-b pb-2 mb-4">
+        1. Product Information
+      </h3>
+
+      <div>
+        <label htmlFor="name" className="block text-sm font-medium mb-1">
+          Product Name <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          required
+          className="w-full px-3 py-2 border rounded text-sm"
+        />
+      </div>
+
+      <div>
+        <label htmlFor="description" className="block text-sm font-medium mb-1">
+          Description
+        </label>
+        <textarea
+          id="description"
+          value={formData.description}
+          onChange={(e) =>
+            setFormData({ ...formData, description: e.target.value })
+          }
+          rows={3}
+          className="w-full px-3 py-2 border rounded text-sm"
+        />
+      </div>
+
+      <RadioSelect
+        label="Category"
+        options={categoryOptions}
+        value={formData.category}
+        onChange={(value: number) =>
+          setFormData({ ...formData, category: value })
+        }
+        placeholder="Select Category"
+        required={true}
+      />
+
+      <RadioSelect
+        label="Brand"
+        options={brandOptions}
+        value={formData.brand}
+        onChange={(value: number) => setFormData({ ...formData, brand: value })}
+        onCreateNew={createNewBrand}
+        placeholder="Select or Create Brand"
+        required={false}
+      />
+
+      <div className="flex items-center pt-2">
+        <input
+          type="checkbox"
+          id="is_active"
+          checked={formData.is_active}
+          onChange={(e) =>
+            setFormData({ ...formData, is_active: e.target.checked })
+          }
+          className="rounded text-blue-600 focus:ring-blue-500"
+        />
+        <label htmlFor="is_active" className="ml-2 text-sm font-medium">
+          Product is Active
+        </label>
+      </div>
+    </div>
+  );
+};
+
+const Step2ProductVariants = ({
+  variants,
+  updateVariant,
+  addVariant,
+  removeVariant,
+  sizes,
+  colors,
+  createNewSize,
+  createNewColor,
+  productCategory,
+  categories,
+}: any) => {
+  // Get the selected category's size_type
+  const selectedCategory = categories.find(
+    (c: any) => c.id === productCategory
+  );
+  const categorySizeType = selectedCategory?.size_type;
+
+  // Filter sizes based on the category's size_type
+  const filteredSizes = categorySizeType
+    ? sizes.filter((s: any) => s.size_type === categorySizeType)
+    : sizes;
+
+  const sizeOptions = filteredSizes.map((s: any) => ({
+    label:
+      s.numeric_size?.toString() ||
+      s.alpha_size ||
+      s.custom_size ||
+      s.id.toString(),
+    value: s.id,
+  }));
+
+  const colorOptions = colors.map((c: any) => ({
+    label: c.color_name,
+    value: c.id,
+    color: c.hex_code,
+  }));
+
+  // Check if size is optional (for categories like Electronics)
+  const sizeIsOptional = !categorySizeType || categorySizeType === "custom";
+
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold border-b pb-2 mb-4">
+        2. Product Variants
+      </h3>
+      {categorySizeType && (
+        <p className="text-sm text-gray-600">
+          This category requires <strong>{categorySizeType}</strong> sizes.
+        </p>
+      )}
+
+      <div className="space-y-6 max-h-96 overflow-y-auto pr-2">
+        {variants.map((variant: Variant, index: number) => (
+          <div
+            key={index}
+            className="p-4 border rounded-lg bg-gray-50 relative">
+            <h4 className="font-medium text-sm mb-3 text-blue-700">
+              Variant {index + 1}
+            </h4>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <RadioSelect
+                label="Size"
+                options={sizeOptions}
+                value={variant.size}
+                onChange={(value: number) =>
+                  updateVariant(index, "size", value)
+                }
+                onCreateNew={(value: string) =>
+                  createNewSize(value, categorySizeType)
+                }
+                placeholder={
+                  sizeIsOptional ? "Size (Optional)" : "Select or Create Size"
+                }
+                required={!sizeIsOptional}
+                disabled={!categorySizeType}
+              />
+              <RadioSelect
+                label="Color"
+                options={colorOptions}
+                value={variant.color}
+                onChange={(value: number) =>
+                  updateVariant(index, "color", value)
+                }
+                onCreateNew={createNewColor}
+                placeholder="Select or Create Color"
+                required={true}
+              />
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Price ($) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={variant.price}
+                  onChange={(e) =>
+                    updateVariant(index, "price", e.target.value)
+                  }
+                  required
+                  className="w-full px-3 py-2 border rounded text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Quantity <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={variant.quantity}
+                  onChange={(e) =>
+                    updateVariant(
+                      index,
+                      "quantity",
+                      parseInt(e.target.value) || 0
+                    )
+                  }
+                  required
+                  className="w-full px-3 py-2 border rounded text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">SKU</label>
+                <input
+                  type="text"
+                  value={variant.sku}
+                  onChange={(e) => updateVariant(index, "sku", e.target.value)}
+                  className="w-full px-3 py-2 border rounded text-sm"
+                />
+              </div>
+              <div className="flex items-center justify-between pt-5">
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={`variant_active_${index}`}
+                    checked={variant.is_active}
+                    onChange={(e) =>
+                      updateVariant(index, "is_active", e.target.checked)
+                    }
+                    className="rounded text-blue-600 focus:ring-blue-500"
+                  />
+                  <label
+                    htmlFor={`variant_active_${index}`}
+                    className="ml-2 text-sm">
+                    Is Active
+                  </label>
+                </div>
+                {variants.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeVariant(index)}
+                    className="text-red-500 hover:text-red-700 p-1 rounded-full bg-red-100">
+                    <Trash />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button
+        type="button"
+        onClick={addVariant}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 text-sm mt-4">
+        <PlusCircle />
+        Add Another Variant
+      </button>
+    </div>
+  );
+};
+
+const ImageUploader = ({ label, image, onChange }: any) => {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files ? e.target.files[0] : null;
+    onChange(file);
+  };
+
+  const clearImage = () => {
+    onChange(null);
+    if (inputRef.current) {
+      inputRef.current.value = "";
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center p-4 border rounded-lg">
+      <label className="font-medium text-sm mb-3">{label} Image</label>
+
+      {image.preview ? (
+        <div className="relative w-full h-32 mb-3 bg-gray-200 rounded-lg overflow-hidden">
+          <img
+            src={image.preview}
+            alt={`${label} preview`}
+            className="w-full h-full object-cover"
+          />
+          <button
+            type="button"
+            onClick={clearImage}
+            className="absolute top-1 right-1 p-1 bg-white rounded-full shadow-md text-red-500 hover:bg-red-50">
+            <X />
+          </button>
+        </div>
+      ) : (
+        <div
+          className="w-full h-32 mb-3 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-blue-500"
+          onClick={() => inputRef.current?.click()}>
+          <Upload />
+          <span className="text-xs text-gray-500 mt-1">Click to Upload</span>
+        </div>
+      )}
+      <input
+        type="file"
+        accept="image/*"
+        ref={inputRef}
+        onChange={handleFileChange}
+        className="hidden"
+      />
+    </div>
+  );
+};
+
+const Step3ProductImages = ({ productImages, handleImageChange }: any) => {
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold border-b pb-2 mb-4">
+        3. Upload Images
+      </h3>
+      <p className="text-sm text-gray-600 mb-6">
+        Upload images for your product (optional but recommended).
+      </p>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {productImages.map((image: ProductImage) => (
+          <ImageUploader
+            key={image.type}
+            label={image.type.charAt(0).toUpperCase() + image.type.slice(1)}
+            image={image}
+            onChange={(file: File | null) =>
+              handleImageChange(image.type, file)
+            }
+          />
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const ProductManagement = ({
   selectedShopId,
+  authToken = "",
+}: {
+  selectedShopId: number | null;
+  authToken?: string;
 }) => {
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
-
-  // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isVariantModalOpen, setIsVariantModalOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<"list" | "variants">("list");
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [productToEdit, setProductToEdit] = useState<Product | null>(null);
-  const [modalLoading, setModalLoading] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [createdProductId, setCreatedProductId] = useState<number | null>(null);
 
-  // Options data
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [sizes, setSizes] = useState<Size[]>([]);
-  const [colors, setColors] = useState<Color[]>([]);
-
-  // Variants data
-  const [variants, setVariants] = useState<ProductVariant[]>([]);
-  const [variantToEdit, setVariantToEdit] = useState<ProductVariant | null>(
-    null
+  const [categories, setCategories] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
+  const [sizes, setSizes] = useState<any[]>([]);
+  const [colors, setColors] = useState<any[]>([]);
+  const [expandedProducts, setExpandedProducts] = useState<Set<number>>(
+    new Set()
   );
 
-  // Form states
-  const [formData, setFormData] = useState<ProductFormData>({
+  const [formData, setFormData] = useState({
     name: "",
-    shop: selectedShopId || 0,
     description: "",
-    brand: null,
-    category: null,
-    is_active: true,
-    available_sizes: [],
-    available_colors: [],
-  });
-
-  const [variantFormData, setVariantFormData] = useState<VariantFormData>({
-    size: 0,
-    color: 0,
-    price: "",
-    quantity: 0,
-    sku: "",
-    description: "",
+    brand: null as number | null,
+    category: null as number | null,
     is_active: true,
   });
 
-  // Auto-generated variants for creating multiple variants at once
-  const [autoGenerateVariants, setAutoGenerateVariants] = useState(false);
-  const [basePrice, setBasePrice] = useState("");
-  const [baseQuantity, setBaseQuantity] = useState(10);
+  const [variants, setVariants] = useState<Variant[]>([
+    {
+      size: null,
+      color: null,
+      price: "",
+      quantity: 0,
+      sku: "",
+      is_active: true,
+    },
+  ]);
 
-  // Search states for sizes and colors
-  const [sizeSearch, setSizeSearch] = useState("");
-  const [colorSearch, setColorSearch] = useState("");
-  const [showNewSizeForm, setShowNewSizeForm] = useState(false);
-  const [showNewColorForm, setShowNewColorForm] = useState(false);
+  const [productImages, setProductImages] = useState<ProductImage[]>([
+    { type: "front", file: null, preview: null },
+    { type: "back", file: null, preview: null },
+    { type: "side", file: null, preview: null },
+    { type: "aerial", file: null, preview: null },
+  ]);
 
-  // New size/color form data
-  const [newSizeData, setNewSizeData] = useState({
-    size_type: "numeric" as "numeric" | "alpha" | "custom",
-    numeric_size: "",
-    alpha_size: "",
-    custom_size: "",
-  });
+  useEffect(() => {
+    fetchOptions();
+  }, []);
 
-  const [newColorData, setNewColorData] = useState({
-    color_name: "",
-    hex_code: "",
-  });
+  useEffect(() => {
+    if (selectedShopId && authToken) {
+      fetchProducts();
+    }
+  }, [selectedShopId, authToken]);
 
   const fetchProducts = async () => {
-    if (!selectedShopId) return;
+    if (!selectedShopId || !authToken) return;
     setLoading(true);
-    setError("");
-
     try {
-      const response = await productAPI.getShopProducts(selectedShopId);
-      const productsData =
-        response.data.data || response.data.results || response.data;
-      setProducts(Array.isArray(productsData) ? productsData : []);
-      setSuccess("Products loaded successfully");
+      const data = await productAPI.getShopProducts(selectedShopId, authToken);
+      const productsArray = Array.isArray(data) ? data : data.results || [];
+
+      const productsWithVariants = await Promise.all(
+        productsArray.map(async (product) => {
+          try {
+            const variantsData = await productAPI.getProductVariants(
+              product.id,
+              authToken
+            );
+            return {
+              ...product,
+              variants: Array.isArray(variantsData)
+                ? variantsData
+                : variantsData.results || [],
+            };
+          } catch (err) {
+            return { ...product, variants: [] };
+          }
+        })
+      );
+
+      setProducts(productsWithVariants);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to fetch products");
-      setProducts([]);
+      setError(err.message || "Failed to load products");
     } finally {
       setLoading(false);
     }
@@ -155,1650 +919,811 @@ const ProductManagement: React.FC<ProductManagementProps> = ({
 
   const fetchOptions = async () => {
     try {
-      const [categoriesRes, brandsRes, sizesRes, colorsRes] = await Promise.all(
-        [
-          productAPI.getCategories(),
-          productAPI.getBrands(),
-          productAPI.getSizes(),
-          productAPI.getColors(),
-        ]
-      );
-
+      const [catsData, brdsData, szsData, clrsData] = await Promise.all([
+        productAPI.getCategories(),
+        productAPI.getBrands(),
+        productAPI.getSizes(),
+        productAPI.getColors(),
+      ]);
       setCategories(
-        categoriesRes.data.data ||
-          categoriesRes.data.results ||
-          categoriesRes.data
+        Array.isArray(catsData) ? catsData : catsData.results || []
       );
-      setBrands(
-        brandsRes.data.data || brandsRes.data.results || brandsRes.data
-      );
-      setSizes(sizesRes.data.data || sizesRes.data.results || sizesRes.data);
-      setColors(
-        colorsRes.data.data || colorsRes.data.results || colorsRes.data
-      );
-    } catch (err: any) {
-      console.error("Failed to load options:", err);
+      setBrands(Array.isArray(brdsData) ? brdsData : brdsData.results || []);
+      setSizes(Array.isArray(szsData) ? szsData : szsData.results || []);
+      setColors(Array.isArray(clrsData) ? clrsData : clrsData.results || []);
+    } catch (err) {
+      console.error("Failed to load options", err);
     }
   };
 
-  const fetchVariants = async (productId: number) => {
+  const createNewBrand = async (name: string) => {
+    if (!authToken) {
+      setError("Authentication required. Please log in.");
+      return;
+    }
     try {
-      setLoading(true);
-      const response = await productAPI.getProductVariants(productId);
-      const variantsData =
-        response.data.data || response.data.results || response.data;
-      setVariants(Array.isArray(variantsData) ? variantsData : []);
+      const newBrand = await productAPI.createBrand(
+        { brand_name: name, description: "" },
+        authToken
+      );
+      setBrands([...brands, newBrand]);
+      setFormData({ ...formData, brand: newBrand.id });
+      setSuccess(`Brand "${name}" created!`);
+      setTimeout(() => setSuccess(""), 3000);
     } catch (err: any) {
-      setError("Failed to fetch product variants");
-      setVariants([]);
+      setError(err.message || "Failed to create brand.");
+    }
+  };
+
+  const createNewColor = async (name: string) => {
+    if (!authToken) {
+      setError("Authentication required. Please log in.");
+      return;
+    }
+    try {
+      const newColor = await productAPI.createColor(
+        { color_name: name, hex_code: "#000000" },
+        authToken
+      );
+      setColors([...colors, newColor]);
+      setSuccess(`Color "${name}" created!`);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      setError(err.message || "Failed to create color.");
+    }
+  };
+
+  const createNewSize = async (value: string, sizeType?: string) => {
+    if (!authToken) {
+      setError("Authentication required. Please log in.");
+      return;
+    }
+    try {
+      // Use the category's size_type if provided, otherwise try to infer
+      const detectedSizeType =
+        sizeType || (!isNaN(Number(value)) ? "numeric" : "alpha");
+
+      const sizeData =
+        detectedSizeType === "numeric"
+          ? { size_type: "numeric", numeric_size: parseInt(value) }
+          : detectedSizeType === "alpha"
+          ? { size_type: "alpha", alpha_size: value.toUpperCase() }
+          : { size_type: "custom", custom_size: value };
+
+      const newSize = await productAPI.createSize(sizeData, authToken);
+      setSizes([...sizes, newSize]);
+      setSuccess(`Size "${value}" created!`);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      setError(err.message || "Failed to create size.");
+    }
+  };
+
+  const addVariant = () => {
+    setVariants([
+      ...variants,
+      {
+        size: null,
+        color: null,
+        price: "",
+        quantity: 0,
+        sku: "",
+        is_active: true,
+      },
+    ]);
+  };
+
+  const removeVariant = (index: number) => {
+    if (variants.length > 1) {
+      setVariants(variants.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateVariant = (index: number, field: string, value: any) => {
+    const newVariants = [...variants];
+    newVariants[index] = { ...newVariants[index], [field]: value };
+    setVariants(newVariants);
+  };
+
+  const handleImageChange = (
+    type: "front" | "back" | "side" | "aerial",
+    file: File | null
+  ) => {
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProductImages((prev) =>
+          prev.map((img) =>
+            img.type === type
+              ? { ...img, file, preview: reader.result as string }
+              : img
+          )
+        );
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setProductImages((prev) =>
+        prev.map((img) =>
+          img.type === type ? { ...img, file: null, preview: null } : img
+        )
+      );
+    }
+  };
+
+  const openModal = async (product?: any) => {
+    setCurrentStep(1);
+    setError("");
+
+    setVariants([
+      {
+        size: null,
+        color: null,
+        price: "",
+        quantity: 0,
+        sku: "",
+        is_active: true,
+      },
+    ]);
+    setProductImages([
+      { type: "front", file: null, preview: null },
+      { type: "back", file: null, preview: null },
+      { type: "side", file: null, preview: null },
+      { type: "aerial", file: null, preview: null },
+    ]);
+
+    if (product) {
+      setEditingId(product.id);
+      setCreatedProductId(product.id);
+      setFormData({
+        name: product.name,
+        description: product.description || "",
+        brand: product.brand || null,
+        category: product.category || null,
+        is_active: product.is_active,
+      });
+
+      if (product.variants && product.variants.length > 0) {
+        setVariants(
+          product.variants.map((v: any) => ({
+            id: v.id,
+            size: v.size || null,
+            color: v.color || null,
+            price: v.price?.toString() || "",
+            quantity: v.quantity || 0,
+            sku: v.sku || "",
+            is_active: v.is_active ?? true,
+          }))
+        );
+      }
+    } else {
+      setEditingId(null);
+      setCreatedProductId(null);
+      setFormData({
+        name: "",
+        description: "",
+        brand: null,
+        category: null,
+        is_active: true,
+      });
+    }
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setCurrentStep(1);
+    setEditingId(null);
+    setCreatedProductId(null);
+  };
+
+  // --- MODIFIED FUNCTION: Step 1 now ONLY creates/updates the base product.
+  // The logic for updating available_sizes/colors has been removed from here.
+  const handleStep1Next = async () => {
+    if (!authToken) {
+      setError("Authentication required");
+      return;
+    }
+    if (!formData.name || !formData.category) {
+      setError("Please fill required fields (Name, Category)");
+      return;
+    }
+    if (!selectedShopId) {
+      setError("Please select a shop first");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+
+    try {
+      // 1. Prepare product data (excluding variant-related fields)
+      const productData = {
+        name: formData.name,
+        description: formData.description,
+        brand: formData.brand,
+        category: formData.category,
+        is_active: formData.is_active,
+        shop: selectedShopId,
+        // IMPORTANT: available_sizes and available_colors are NOT included here.
+        // They will be updated in Step 2 after variant data is gathered.
+      };
+
+      let finalProductId: number;
+
+      if (editingId) {
+        // Update existing product
+        const updated = await productAPI.updateProduct(
+          editingId,
+          productData,
+          authToken
+        );
+        finalProductId = updated.id || editingId;
+      } else {
+        // Create new product
+        const created = await productAPI.createProduct(productData, authToken);
+
+        // We rely on the created response returning the ID.
+        // The previous, risky fallback logic to re-fetch all products is removed.
+        finalProductId = created.id || created.pk;
+        if (!finalProductId) {
+          throw new Error("Product created but no ID was returned from API.");
+        }
+      }
+
+      // ✅ Always set IDs before moving next
+      setEditingId(finalProductId);
+      setCreatedProductId(finalProductId);
+      setCurrentStep(2);
+    } catch (err: any) {
+      console.error("Product creation error:", err);
+      setError(err.message || "Failed to save product information");
+      setCreatedProductId(null);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (selectedShopId) {
-      fetchProducts();
-    } else {
-      setProducts([]);
+  // -------------------------
+
+  // --- UNMODIFIED FUNCTION: This function now correctly handles the product update
+  // for available_sizes/colors before saving the variants.
+  const handleStep2Next = async () => {
+    if (!authToken || !createdProductId) {
+      setError("Product must be created first");
+      return;
     }
-  }, [selectedShopId]);
 
-  useEffect(() => {
-    fetchOptions();
-  }, []);
-
-  // Get compatible sizes based on selected category
-  const compatibleSizes = useMemo(() => {
-    if (!formData.category) return sizes;
-    const selectedCategory = categories.find((c) => c.id === formData.category);
-    if (!selectedCategory) return sizes;
-    return sizes.filter((s) => s.size_type === selectedCategory.size_type);
-  }, [formData.category, categories, sizes]);
-
-  // Filtered sizes and colors based on search
-  const filteredSizes = useMemo(() => {
-    if (!sizeSearch) return compatibleSizes;
-    return compatibleSizes.filter((size) =>
-      getSizeName(size.id).toLowerCase().includes(sizeSearch.toLowerCase())
+    // Get the selected category's size_type
+    const selectedCategory = categories.find(
+      (c: any) => c.id === formData.category
     );
-  }, [compatibleSizes, sizeSearch]);
+    const categorySizeType = selectedCategory?.size_type;
 
-  const filteredColors = useMemo(() => {
-    if (!colorSearch) return colors;
-    return colors.filter((color) =>
-      color.color_name.toLowerCase().includes(colorSearch.toLowerCase())
-    );
-  }, [colors, colorSearch]);
+    // Validate variants
+    for (let i = 0; i < variants.length; i++) {
+      const v = variants[i];
 
-  const openProductModal = (product: Product | null = null) => {
-    setProductToEdit(product);
-    setFormData(
-      product
-        ? {
-            name: product.name,
-            shop: product.shop,
-            description: product.description || "",
-            brand: product.brand,
-            category: product.category,
-            is_active: product.is_active,
-            available_sizes: product.available_sizes || [],
-            available_colors: product.available_colors || [],
-          }
-        : {
-            name: "",
-            shop: selectedShopId || 0,
-            description: "",
-            brand: null,
-            category: null,
-            is_active: true,
-            available_sizes: [],
-            available_colors: [],
-          }
-    );
-    setIsModalOpen(true);
-    setError("");
-    setSuccess("");
-  };
+      // Size is only required for non-custom categories
+      const sizeRequired = categorySizeType && categorySizeType !== "custom";
 
-  const closeProductModal = () => {
-    setIsModalOpen(false);
-    setProductToEdit(null);
-    setAutoGenerateVariants(false);
-    setBasePrice("");
-    setBaseQuantity(10);
-  };
-
-  const openVariantModal = (variant: ProductVariant | null = null) => {
-    setVariantToEdit(variant);
-    setVariantFormData(
-      variant
-        ? {
-            size: variant.size,
-            color: variant.color,
-            price: variant.price,
-            quantity: variant.quantity,
-            sku: variant.sku || "",
-            description: variant.description || "",
-            is_active: variant.is_active,
-          }
-        : {
-            size: 0,
-            color: 0,
-            price: "",
-            quantity: 0,
-            sku: "",
-            description: "",
-            is_active: true,
-          }
-    );
-    setIsVariantModalOpen(true);
-    setError("");
-    setSuccess("");
-  };
-
-  const closeVariantModal = () => {
-    setIsVariantModalOpen(false);
-    setVariantToEdit(null);
-  };
-
-  const handleSaveProduct = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedShopId) return;
-
-    setModalLoading(true);
-
-    try {
-      const productData = {
-        ...formData,
-        shop: selectedShopId,
-      };
-
-      let savedProduct: Product;
-
-      if (productToEdit) {
-        const response = await productAPI.updateProduct(
-          productToEdit.id,
-          productData
-        );
-        savedProduct = response.data;
-        setProducts((prev) =>
-          prev.map((p) => (p.id === productToEdit.id ? savedProduct : p))
-        );
-        setSuccess(`Product "${formData.name}" updated successfully`);
-      } else {
-        const response = await productAPI.createProduct(productData);
-        savedProduct = response.data;
-        setProducts((prev) => [...prev, savedProduct]);
-        setSuccess(`Product "${formData.name}" created successfully`);
-      }
-
-      // Auto-generate variants if enabled
       if (
-        autoGenerateVariants &&
-        !productToEdit &&
-        basePrice &&
-        formData.available_sizes.length > 0 &&
-        formData.available_colors.length > 0
+        (sizeRequired && !v.size) ||
+        !v.color ||
+        !v.price ||
+        isNaN(parseFloat(v.price)) ||
+        parseFloat(v.price) < 0 ||
+        v.quantity < 0
       ) {
-        await generateVariants(savedProduct.id);
+        setError(
+          `Variant ${i + 1}: Please fill all required fields with valid values.`
+        );
+        return;
       }
-
-      closeProductModal();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to save product");
-    } finally {
-      setModalLoading(false);
     }
-  };
 
-  const generateVariants = async (productId: number) => {
+    setLoading(true);
+    setError("");
+
     try {
-      const variants: Partial<ProductVariant>[] = [];
+      // 1. Collect unique sizes and colors from the new variants
+      const uniqueSizes = [
+        ...new Set(variants.map((v) => v.size).filter((s) => s !== null)),
+      ];
+      const uniqueColors = [
+        ...new Set(variants.map((v) => v.color).filter((c) => c !== null)),
+      ];
 
-      for (const sizeId of formData.available_sizes) {
-        for (const colorId of formData.available_colors) {
-          variants.push({
-            product: productId,
-            size: sizeId,
-            color: colorId,
-            price: basePrice,
-            quantity: baseQuantity,
-            is_active: true,
-          });
+      // 2. Update the product with available_sizes and available_colors
+      await productAPI.updateProduct(
+        createdProductId,
+        { available_sizes: uniqueSizes, available_colors: uniqueColors },
+        authToken
+      );
+
+      // 3. Create/update variants
+      const allVariantPromises = variants.map(async (variant) => {
+        const variantData: any = {
+          product: createdProductId,
+          size: variant.size, // CAN BE NULL for custom categories
+          color: variant.color, // REQUIRED
+          price: parseFloat(variant.price),
+          quantity: variant.quantity,
+          sku:
+            variant.sku ||
+            `${formData.name.toUpperCase().slice(0, 3)}-${
+              variant.size || "NOSIZ"
+            }-${variant.color}-${Date.now()}`,
+          is_active: variant.is_active,
+        };
+
+        // CRITICAL: Remove size if it's null to avoid validation errors
+        if (variantData.size === null) {
+          delete variantData.size;
         }
-      }
 
-      await productAPI.createMultipleVariants(variants);
-      setSuccess(`Created ${variants.length} product variants automatically`);
+        if (variant.id) {
+          return productAPI.updateVariant(variant.id, variantData, authToken);
+        } else {
+          return productAPI.createVariant(variantData, authToken);
+        }
+      });
+
+      await Promise.all(allVariantPromises);
+      setCurrentStep(3);
     } catch (err: any) {
-      console.error("Failed to generate variants:", err);
-    }
-  };
-
-  const handleSaveVariant = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedProduct) return;
-
-    setModalLoading(true);
-
-    try {
-      const variantData = {
-        ...variantFormData,
-        product: selectedProduct.id,
-      };
-
-      if (variantToEdit) {
-        const response = await productAPI.updateProductVariant(
-          variantToEdit.id,
-          variantData
-        );
-        setVariants((prev) =>
-          prev.map((v) => (v.id === variantToEdit.id ? response.data : v))
-        );
-        setSuccess("Variant updated successfully");
-      } else {
-        const response = await productAPI.createProductVariant(variantData);
-        setVariants((prev) => [...prev, response.data]);
-        setSuccess("Variant created successfully");
-      }
-
-      closeVariantModal();
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to save variant");
+      console.error("Variant creation error:", err);
+      setError(
+        `Failed to save variants. ${err.message || "Check console for details"}`
+      );
     } finally {
-      setModalLoading(false);
+      setLoading(false);
     }
   };
-
-  const handleDeleteProduct = async (
-    productId: number,
-    productName: string
-  ) => {
-    if (
-      !window.confirm(
-        `Are you sure you want to delete "${productName}" and all its variants?`
-      )
-    ) {
+  const handleStep3Complete = async () => {
+    if (!authToken || !createdProductId) {
+      setError("Product must be created first");
       return;
     }
 
-    try {
-      await productAPI.deleteProduct(productId);
-      setProducts((prev) => prev.filter((p) => p.id !== productId));
-      setSuccess(`Product "${productName}" deleted successfully`);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to delete product");
-    }
-  };
-
-  const handleDeleteVariant = async (variantId: number) => {
-    if (!window.confirm("Are you sure you want to delete this variant?")) {
-      return;
-    }
+    setLoading(true);
+    setError("");
 
     try {
-      await productAPI.deleteProductVariant(variantId);
-      setVariants((prev) => prev.filter((v) => v.id !== variantId));
-      setSuccess("Variant deleted successfully");
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to delete variant");
-    }
-  };
-
-  const handleToggleStatus = async (product: Product) => {
-    try {
-      const response = await productAPI.updateProduct(product.id, {
-        ...product,
-        is_active: !product.is_active,
-      });
-      setProducts((prev) =>
-        prev.map((p) => (p.id === product.id ? response.data : p))
+      // Get the created variants for this product
+      const variantsData = await productAPI.getProductVariants(
+        createdProductId,
+        authToken
       );
-      setSuccess(
-        `Product ${
-          !product.is_active ? "activated" : "deactivated"
-        } successfully`
-      );
+      const createdVariants = Array.isArray(variantsData)
+        ? variantsData
+        : variantsData.results || [];
+
+      if (createdVariants.length === 0) {
+        throw new Error("No variants found for this product");
+      }
+
+      // Upload images if any are provided
+      // Use the FIRST variant as the target for images
+      const primaryVariant = createdVariants[0];
+
+      const imagesToUpload = productImages.filter((img) => img.file);
+
+      if (imagesToUpload.length > 0) {
+        const formData = new FormData();
+
+        // Add variant_id to link images to the variant
+        formData.append("variant_id", primaryVariant.id.toString());
+
+        // Add is_primary flag (first variant gets primary images)
+        formData.append("is_primary", "true");
+
+        // Add all image files
+        imagesToUpload.forEach((img) => {
+          if (img.file) {
+            formData.append(`${img.type}_image`, img.file);
+          }
+        });
+
+        // Upload images
+        await productAPI.uploadProductImages(
+          createdProductId,
+          formData,
+          authToken
+        );
+      }
+
+      setSuccess(`Product ${editingId ? "updated" : "created"} successfully!`);
+      await fetchProducts();
+      closeModal();
+      setTimeout(() => setSuccess(""), 3000);
     } catch (err: any) {
+      console.error("Image upload error:", err);
       setError(
-        err.response?.data?.message || "Failed to update product status"
+        err.message ||
+          "Failed to complete product creation. Product and variants saved, but images may have failed."
       );
-    }
-  };
-
-  const handleToggleVariantStatus = async (variant: ProductVariant) => {
-    try {
-      const response = await productAPI.updateProductVariant(variant.id, {
-        ...variant,
-        is_active: !variant.is_active,
-      });
-      setVariants((prev) =>
-        prev.map((v) => (v.id === variant.id ? response.data : v))
-      );
-      setSuccess(
-        `Variant ${
-          !variant.is_active ? "activated" : "deactivated"
-        } successfully`
-      );
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message || "Failed to update variant status"
-      );
-    }
-  };
-
-  const createNewSize = async () => {
-    try {
-      setModalLoading(true);
-
-      // Determine the size type based on selected category
-      const selectedCategory = categories.find(
-        (c) => c.id === formData.category
-      );
-      const sizeType = selectedCategory?.size_type || "numeric";
-
-      const sizeData = {
-        size_type: sizeType,
-        numeric_size:
-          sizeType === "numeric"
-            ? parseInt(newSizeData.numeric_size) || null
-            : null,
-        alpha_size: sizeType === "alpha" ? newSizeData.alpha_size : null,
-        custom_size: sizeType === "custom" ? newSizeData.custom_size : null,
-      };
-
-      const response = await productAPI.createSize(sizeData);
-      const createdSize = response.data;
-
-      // Add to sizes list and select it
-      setSizes((prev) => [...prev, createdSize]);
-      setFormData((prev) => ({
-        ...prev,
-        available_sizes: [...prev.available_sizes, createdSize.id],
-      }));
-
-      // Reset form and close
-      setNewSizeData({
-        size_type: "numeric",
-        numeric_size: "",
-        alpha_size: "",
-        custom_size: "",
-      });
-      setShowNewSizeForm(false);
-      setSuccess(`Size "${getSizeName(createdSize.id)}" created successfully`);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to create size");
     } finally {
-      setModalLoading(false);
+      setLoading(false);
     }
   };
 
-  const createNewColor = async () => {
+  const deleteProduct = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this product?")) return;
+
+    setLoading(true);
     try {
-      setModalLoading(true);
-
-      const colorData = {
-        color_name: newColorData.color_name,
-        hex_code: newColorData.hex_code || null,
-      };
-
-      const response = await productAPI.createColor(colorData);
-      const createdColor = response.data;
-
-      // Add to colors list and select it
-      setColors((prev) => [...prev, createdColor]);
-      setFormData((prev) => ({
-        ...prev,
-        available_colors: [...prev.available_colors, createdColor.id],
-      }));
-
-      // Reset form and close
-      setNewColorData({
-        color_name: "",
-        hex_code: "",
-      });
-      setShowNewColorForm(false);
-      setSuccess(`Color "${createdColor.color_name}" created successfully`);
+      await productAPI.deleteProduct(id, authToken);
+      setSuccess("Product deleted successfully!");
+      await fetchProducts();
+      setTimeout(() => setSuccess(""), 3000);
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to create color");
+      setError(err.message || "Failed to delete product");
     } finally {
-      setModalLoading(false);
+      setLoading(false);
     }
   };
 
-  const resetNewSizeForm = () => {
-    setNewSizeData({
-      size_type: "numeric",
-      numeric_size: "",
-      alpha_size: "",
-      custom_size: "",
-    });
-    setShowNewSizeForm(false);
-  };
-
-  const resetNewColorForm = () => {
-    setNewColorData({
-      color_name: "",
-      hex_code: "",
-    });
-    setShowNewColorForm(false);
-  };
-
-  const showVariants = (product: Product) => {
-    setSelectedProduct(product);
-    setCurrentView("variants");
-    fetchVariants(product.id);
-  };
-
-  const backToProducts = () => {
-    setCurrentView("list");
-    setSelectedProduct(null);
-    setVariants([]);
-  };
-
-  const handleFormChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value, type } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        type === "checkbox"
-          ? (e.target as HTMLInputElement).checked
-          : name === "brand" || name === "category"
-          ? value
-            ? parseInt(value)
-            : null
-          : value,
-    }));
-  };
-
-  const handleVariantFormChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value, type } = e.target;
-    setVariantFormData((prev) => ({
-      ...prev,
-      [name]:
-        type === "checkbox"
-          ? (e.target as HTMLInputElement).checked
-          : name === "size" || name === "color" || name === "quantity"
-          ? parseInt(value) || 0
-          : value,
-    }));
-  };
-
-  const handleMultiSelect = (name: string, value: number, checked: boolean) => {
-    setFormData((prev) => ({
-      ...prev,
-      [name]: checked
-        ? [...(prev[name as keyof typeof prev] as number[]), value]
-        : (prev[name as keyof typeof prev] as number[]).filter(
-            (id) => id !== value
-          ),
-    }));
-  };
-
-  const filteredProducts = useMemo(() => {
-    let filtered = products;
-
-    if (searchTerm) {
-      const lowerSearch = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (p) =>
-          p.name.toLowerCase().includes(lowerSearch) ||
-          (p.description && p.description.toLowerCase().includes(lowerSearch))
-      );
+  const toggleProductExpansion = (productId: number) => {
+    const newExpanded = new Set(expandedProducts);
+    if (newExpanded.has(productId)) {
+      newExpanded.delete(productId);
+    } else {
+      newExpanded.add(productId);
     }
-
-    if (categoryFilter !== "All") {
-      const categoryId = parseInt(categoryFilter);
-      filtered = filtered.filter((p) => p.category === categoryId);
-    }
-
-    if (statusFilter !== "All") {
-      const isActive = statusFilter === "Active";
-      filtered = filtered.filter((p) => p.is_active === isActive);
-    }
-
-    return filtered;
-  }, [products, searchTerm, categoryFilter, statusFilter]);
-
-  const getSizeName = (sizeId: number) => {
-    const size = sizes.find((s) => s.id === sizeId);
-    if (!size) return `Size ${sizeId}`;
-
-    if (size.size_type === "numeric" && size.numeric_size)
-      return size.numeric_size.toString();
-    if (size.size_type === "alpha" && size.alpha_size) return size.alpha_size;
-    if (size.size_type === "custom" && size.custom_size)
-      return size.custom_size;
-    return `Size ${sizeId}`;
+    setExpandedProducts(newExpanded);
   };
 
-  const getColorName = (colorId: number) => {
-    const color = colors.find((c) => c.id === colorId);
-    return color?.color_name || `Color ${colorId}`;
+  const getCategoryName = (id: number) =>
+    categories.find((c) => c.id === id)?.category_name || "N/A";
+  const getBrandName = (id: number) =>
+    brands.find((b) => b.id === id)?.brand_name || "N/A";
+  const getSizeName = (id: number) => {
+    const size = sizes.find((s) => s.id === id);
+    return size
+      ? size.numeric_size?.toString() ||
+          size.alpha_size ||
+          size.custom_size ||
+          "N/A"
+      : "N/A";
   };
+  const getColorName = (id: number) =>
+    colors.find((c) => c.id === id)?.color_name || "N/A";
+  const getColorHex = (id: number) =>
+    colors.find((c) => c.id === id)?.hex_code || "#cccccc";
 
   if (!selectedShopId) {
     return (
-      <div className="p-4 md:p-8">
-        <div className="text-center py-12">
-          <Package className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            No Shop Selected
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400">
-            Please select a shop to manage its products
-          </p>
+      <div className="p-8 text-center">
+        <div className="inline-block mb-4 text-gray-400">
+          <Package />
         </div>
+        <h3 className="text-lg font-medium mb-2">No Shop Selected</h3>
+        <p className="text-gray-600">Please select a shop to manage products</p>
       </div>
     );
   }
 
+  if (!authToken) {
+    return (
+      <div className="p-8 text-center">
+        <div className="inline-block mb-4 text-red-400">
+          <AlertCircle />
+        </div>
+        <h3 className="text-lg font-medium mb-2">Authentication Required</h3>
+        <p className="text-gray-600">Please log in to manage products</p>
+      </div>
+    );
+  }
+
+  const steps = [
+    { id: 1, name: "Product Info" },
+    { id: 2, name: "Variants" },
+    { id: 3, name: "Images" },
+  ];
+
+  const handleNext = () => {
+    if (currentStep === 1) handleStep1Next();
+    if (currentStep === 2) handleStep2Next();
+  };
+
+  const handleBack = () => {
+    setCurrentStep((prev) => Math.max(1, prev - 1));
+  };
+
   return (
-    <div className="p-4 md:p-8">
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        {currentView === "list" ? (
-          <>
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Product Catalogue ({filteredProducts.length} Items)
-            </h2>
-            <button
-              onClick={() => openProductModal()}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-green-600 hover:bg-green-700 transition">
-              <Plus className="w-5 h-5 mr-2" />
-              New Product
-            </button>
-          </>
-        ) : (
-          <>
-            <div className="flex items-center">
-              <button
-                onClick={backToProducts}
-                className="mr-4 p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                <ArrowLeft className="w-5 h-5" />
-              </button>
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
-                {selectedProduct?.name} - Variants ({variants.length})
-              </h2>
+    <div className="p-4">
+      {success && (
+        <div className="fixed top-4 right-4 bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded z-[100]">
+          <div className="flex items-center gap-2">
+            <CheckCircle />
+            <p className="text-sm font-medium">{success}</p>
+          </div>
+        </div>
+      )}
+      {error && (
+        <div className="fixed top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded z-[100] max-w-md">
+          <div className="flex items-start gap-2">
+            <AlertCircle />
+            <div className="flex flex-col">
+              <p className="text-sm font-medium">Error:</p>
+              <pre className="text-xs whitespace-pre-wrap mt-1">{error}</pre>
             </div>
-            <button
-              onClick={() => openVariantModal()}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition">
-              <Plus className="w-5 h-5 mr-2" />
-              New Variant
-            </button>
-          </>
-        )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-semibold flex items-center gap-2">
+          <Package /> Product Management
+        </h2>
+        <button
+          onClick={() => openModal()}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm font-medium">
+          <Plus /> Add New Product
+        </button>
       </div>
 
-      {/* Success/Error Messages */}
-      {success && (
-        <div className="mb-6 p-4 text-green-700 bg-green-100 dark:bg-green-900 dark:text-green-300 rounded-lg flex items-center">
-          <CheckCircle className="w-5 h-5 mr-2 flex-shrink-0" />
-          {success}
-          <button
-            onClick={() => setSuccess("")}
-            className="ml-auto text-green-700 dark:text-green-300 hover:text-green-900">
-            <X className="w-4 h-4" />
-          </button>
+      {loading && products.length === 0 ? (
+        <div className="text-center py-10 text-gray-500 flex items-center justify-center gap-2">
+          <Loader2 /> Loading Products...
         </div>
-      )}
-
-      {error && (
-        <div className="mb-6 p-4 text-red-700 bg-red-100 dark:bg-red-900 dark:text-red-300 rounded-lg flex items-center">
-          <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
-          {error}
-          <button
-            onClick={() => setError("")}
-            className="ml-auto text-red-700 dark:text-red-300 hover:text-red-900">
-            <X className="w-4 h-4" />
-          </button>
+      ) : products.length === 0 ? (
+        <div className="text-center py-10 text-gray-500">
+          No products found for this shop.
         </div>
-      )}
-
-      {/* Content based on current view */}
-      {currentView === "list" ? (
-        <>
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search products..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full p-3 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500"
-              />
-            </div>
-
-            <select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              className="p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500">
-              <option value="All">All Categories</option>
-              {categories.map((category) => (
-                <option key={category.id} value={category.id.toString()}>
-                  {category.category_name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="p-3 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white focus:ring-blue-500 focus:border-blue-500">
-              <option value="All">All Status</option>
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-6 gap-4 font-medium text-sm text-gray-600 border-b pb-2">
+            <span className="col-span-2">Name</span>
+            <span>Category</span>
+            <span>Brand</span>
+            <span>Active</span>
+            <span className="text-right">Actions</span>
           </div>
 
-          {/* Loading State */}
-          {loading && (
-            <div className="flex justify-center items-center h-64">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-                <p className="text-gray-600 dark:text-gray-400">
-                  Loading products...
-                </p>
+          {products.map((product) => (
+            <div key={product.id} className="border rounded-lg shadow-sm">
+              <div
+                className="grid grid-cols-6 gap-4 items-center p-4 hover:bg-gray-50 cursor-pointer"
+                onClick={() => toggleProductExpansion(product.id)}>
+                <div className="col-span-2 text-sm font-medium">
+                  {product.name}
+                </div>
+                <div className="text-sm">
+                  {getCategoryName(product.category)}
+                </div>
+                <div className="text-sm">{getBrandName(product.brand)}</div>
+                <div className="text-sm">
+                  {product.is_active ? (
+                    <CheckCircle className="text-green-500" />
+                  ) : (
+                    <AlertCircle className="text-red-500" />
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openModal(product);
+                    }}
+                    className="p-1 text-blue-600 hover:text-blue-800 rounded-full hover:bg-blue-50">
+                    <Edit />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteProduct(product.id);
+                    }}
+                    className="p-1 text-red-600 hover:text-red-800 rounded-full hover:bg-red-50">
+                    <Trash />
+                  </button>
+                  {expandedProducts.has(product.id) ? (
+                    <ChevronRight className="rotate-90" />
+                  ) : (
+                    <ChevronRight />
+                  )}
+                </div>
               </div>
-            </div>
-          )}
 
-          {/* Products Table */}
-          {!loading && filteredProducts.length > 0 && (
-            <div className="overflow-x-auto shadow-lg rounded-xl border dark:border-gray-700">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Product
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Category
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Variants
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {filteredProducts.map((product) => (
-                    <tr
-                      key={product.id}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {product.name}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
-                            {product.description || "No description"}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {categories.find((c) => c.id === product.category)
-                          ?.category_name || "Uncategorized"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            product.is_active
-                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                              : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                          }`}>
-                          {product.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => showVariants(product)}
-                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 transition text-sm font-medium">
-                          Manage Variants
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => handleToggleStatus(product)}
-                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 transition p-1"
-                            title={
-                              product.is_active ? "Deactivate" : "Activate"
-                            }>
-                            {product.is_active ? (
-                              <EyeOff className="w-4 h-4" />
-                            ) : (
-                              <Eye className="w-4 h-4" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => openProductModal(product)}
-                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 transition p-1"
-                            title="Edit">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() =>
-                              handleDeleteProduct(product.id, product.name)
-                            }
-                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 transition p-1"
-                            title="Delete">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </>
-      ) : (
-        // Variants View
-        <>
-          {loading && (
-            <div className="flex justify-center items-center h-64">
-              <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-                <p className="text-gray-600 dark:text-gray-400">
-                  Loading variants...
-                </p>
-              </div>
-            </div>
-          )}
-
-          {!loading && variants.length === 0 && (
-            <div className="text-center py-12">
-              <Package className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                No Variants Found
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                Create variants by specifying size, color, and pricing
-                combinations
-              </p>
-              <button
-                onClick={() => openVariantModal()}
-                className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">
-                <Plus className="w-4 h-4 mr-2" />
-                Create First Variant
-              </button>
-            </div>
-          )}
-
-          {!loading && variants.length > 0 && (
-            <div className="overflow-x-auto shadow-lg rounded-xl border dark:border-gray-700">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                <thead className="bg-gray-50 dark:bg-gray-700">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Size
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Color
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Price
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Stock
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      SKU
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                  {variants.map((variant) => (
-                    <tr
-                      key={`variant-${variant.id}`}
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700 transition">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {getSizeName(variant.size)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <span className="text-sm text-gray-900 dark:text-white">
-                            {getColorName(variant.color)}
-                          </span>
-                          {colors.find((c) => c.id === variant.color)
-                            ?.hex_code && (
+              {expandedProducts.has(product.id) && (
+                <div className="bg-gray-100 p-4 border-t">
+                  <h4 className="font-semibold text-sm mb-3">
+                    Variants ({product.variants.length})
+                  </h4>
+                  {product.variants.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-6 gap-2 text-xs font-medium text-gray-600 pb-1 border-b">
+                        <span>Size</span>
+                        <span>Color</span>
+                        <span>SKU</span>
+                        <span>Price</span>
+                        <span>Qty</span>
+                        <span>Active</span>
+                      </div>
+                      {product.variants.map((variant: Variant) => (
+                        <div
+                          key={variant.id}
+                          className="grid grid-cols-6 gap-2 text-xs items-center py-1">
+                          <span>{getSizeName(variant.size)}</span>
+                          <span className="flex items-center gap-1">
                             <span
-                              className="ml-2 w-4 h-4 rounded-full border border-gray-300"
+                              className="w-3 h-3 rounded-full border"
                               style={{
-                                backgroundColor: colors.find(
-                                  (c) => c.id === variant.color
-                                )?.hex_code,
+                                backgroundColor: getColorHex(variant.color),
                               }}
                             />
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        £{parseFloat(variant.price).toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`text-sm font-medium ${
-                            variant.quantity === 0
-                              ? "text-red-600 dark:text-red-400"
-                              : variant.quantity <= 10
-                              ? "text-yellow-600 dark:text-yellow-400"
-                              : "text-green-600 dark:text-green-400"
-                          }`}>
-                          {variant.quantity} units
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                        {variant.sku || "No SKU"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            variant.is_active
-                              ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300"
-                              : "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300"
-                          }`}>
-                          {variant.is_active ? "Active" : "Inactive"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => handleToggleVariantStatus(variant)}
-                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 transition p-1"
-                            title={
-                              variant.is_active ? "Deactivate" : "Activate"
-                            }>
+                            {getColorName(variant.color)}
+                          </span>
+                          <span>{variant.sku || "N/A"}</span>
+                          <span>${variant.price}</span>
+                          <span>{variant.quantity}</span>
+                          <span>
                             {variant.is_active ? (
-                              <EyeOff className="w-4 h-4" />
+                              <CheckCircle className="w-4 h-4 text-green-500" />
                             ) : (
-                              <Eye className="w-4 h-4" />
+                              <AlertCircle className="w-4 h-4 text-red-500" />
                             )}
-                          </button>
-                          <button
-                            onClick={() => openVariantModal(variant)}
-                            className="text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300 transition p-1"
-                            title="Edit">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteVariant(variant.id)}
-                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 transition p-1"
-                            title="Delete">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          </span>
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      No variants defined.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-          )}
-        </>
+          ))}
+        </div>
       )}
 
-      {/* Product Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {productToEdit ? "Edit Product" : "Create New Product"}
-                </h3>
-                <button
-                  onClick={closeProductModal}
-                  className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                  <X className="w-5 h-5" />
-                </button>
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+            <div className="p-6 border-b flex justify-between items-center">
+              <h3 className="text-xl font-bold">
+                {editingId ? "Edit Product" : "Create New Product"}
+              </h3>
+              <button
+                onClick={closeModal}
+                className="text-gray-400 hover:text-gray-600">
+                <X />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto flex-grow">
+              <div className="flex justify-between items-center mb-8">
+                {steps.map((step) => (
+                  <React.Fragment key={step.id}>
+                    <div className="flex items-center">
+                      <div
+                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                          currentStep === step.id
+                            ? "bg-blue-600 text-white"
+                            : currentStep > step.id
+                            ? "bg-green-500 text-white"
+                            : "bg-gray-200 text-gray-600"
+                        }`}>
+                        {currentStep > step.id ? (
+                          <CheckCircle className="w-4 h-4" />
+                        ) : (
+                          step.id
+                        )}
+                      </div>
+                      <span
+                        className={`ml-2 text-sm hidden sm:inline ${
+                          currentStep >= step.id
+                            ? "font-medium"
+                            : "text-gray-500"
+                        }`}>
+                        {step.name}
+                      </span>
+                    </div>
+                    {step.id < steps.length && (
+                      <div
+                        className={`flex-auto border-t-2 mx-2 ${
+                          currentStep > step.id
+                            ? "border-green-500"
+                            : "border-gray-200"
+                        }`}
+                      />
+                    )}
+                  </React.Fragment>
+                ))}
               </div>
 
-              <form onSubmit={handleSaveProduct} className="space-y-6">
-                {/* Basic Product Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Product Name *
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      value={formData.name}
-                      onChange={handleFormChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Category
-                    </label>
-                    <select
-                      name="category"
-                      value={formData.category || ""}
-                      onChange={handleFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                      <option value="">Select Category</option>
-                      {categories.map((category) => (
-                        <option
-                          key={`category-${category.id}`}
-                          value={category.id}>
-                          {category.category_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Brand
-                    </label>
-                    <select
-                      name="brand"
-                      value={formData.brand || ""}
-                      onChange={handleFormChange}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                      <option value="">Select Brand</option>
-                      {brands.map((brand) => (
-                        <option key={`brand-${brand.id}`} value={brand.id}>
-                          {brand.brand_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleFormChange}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
+              <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
+                {currentStep === 1 && (
+                  <Step1ProductInfo
+                    formData={formData}
+                    setFormData={setFormData}
+                    categories={categories}
+                    brands={brands}
+                    createNewBrand={createNewBrand}
                   />
-                </div>
-
-                {/* Available Sizes */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Available Sizes
-                  </label>
-                  <div className="border border-gray-300 dark:border-gray-600 rounded-lg">
-                    {/* Search and Add New Size Header */}
-                    <div className="p-3 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-t-lg">
-                      <div className="flex gap-2 items-center">
-                        <div className="flex-1 relative">
-                          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Search sizes..."
-                            value={sizeSearch}
-                            onChange={(e) => setSizeSearch(e.target.value)}
-                            className="w-full pl-8 pr-3 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowNewSizeForm(!showNewSizeForm)}
-                          className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-1">
-                          <Plus className="w-3 h-3" />
-                          New Size
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* New Size Form */}
-                    {showNewSizeForm && (
-                      <div className="p-3 bg-blue-50 dark:bg-blue-900 border-b border-gray-200 dark:border-gray-600">
-                        <div className="space-y-2">
-                          <div className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                            Create New Size
-                          </div>
-                          {formData.category && (
-                            <div className="text-xs text-blue-700 dark:text-blue-300">
-                              Size type:{" "}
-                              {categories.find(
-                                (c) => c.id === formData.category
-                              )?.size_type || "numeric"}
-                            </div>
-                          )}
-
-                          {(() => {
-                            const selectedCategory = categories.find(
-                              (c) => c.id === formData.category
-                            );
-                            const sizeType =
-                              selectedCategory?.size_type || "numeric";
-
-                            return (
-                              <div className="flex gap-2 items-end">
-                                {sizeType === "numeric" && (
-                                  <div className="flex-1">
-                                    <input
-                                      type="number"
-                                      placeholder="Size number (e.g., 42)"
-                                      value={newSizeData.numeric_size}
-                                      onChange={(e) =>
-                                        setNewSizeData((prev) => ({
-                                          ...prev,
-                                          numeric_size: e.target.value,
-                                        }))
-                                      }
-                                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                  </div>
-                                )}
-
-                                {sizeType === "alpha" && (
-                                  <div className="flex-1">
-                                    <input
-                                      type="text"
-                                      placeholder="Size (e.g., XL)"
-                                      value={newSizeData.alpha_size}
-                                      onChange={(e) =>
-                                        setNewSizeData((prev) => ({
-                                          ...prev,
-                                          alpha_size: e.target.value,
-                                        }))
-                                      }
-                                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                  </div>
-                                )}
-
-                                {sizeType === "custom" && (
-                                  <div className="flex-1">
-                                    <input
-                                      type="text"
-                                      placeholder="Custom size"
-                                      value={newSizeData.custom_size}
-                                      onChange={(e) =>
-                                        setNewSizeData((prev) => ({
-                                          ...prev,
-                                          custom_size: e.target.value,
-                                        }))
-                                      }
-                                      className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded focus:ring-blue-500 focus:border-blue-500"
-                                    />
-                                  </div>
-                                )}
-
-                                <button
-                                  type="button"
-                                  onClick={createNewSize}
-                                  disabled={modalLoading}
-                                  className="px-2 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400 flex items-center gap-1">
-                                  {modalLoading ? (
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                  ) : (
-                                    <CheckCircle className="w-3 h-3" />
-                                  )}
-                                  Create
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={resetNewSizeForm}
-                                  className="px-2 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600">
-                                  Cancel
-                                </button>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Sizes List */}
-                    <div className="p-4 max-h-40 overflow-y-auto">
-                      {filteredSizes.length > 0 ? (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                          {filteredSizes.map((size) => (
-                            <label
-                              key={`available-size-${size.id}`}
-                              className="flex items-center space-x-2">
-                              <input
-                                type="checkbox"
-                                checked={formData.available_sizes.includes(
-                                  size.id
-                                )}
-                                onChange={(e) =>
-                                  handleMultiSelect(
-                                    "available_sizes",
-                                    size.id,
-                                    e.target.checked
-                                  )
-                                }
-                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                              />
-                              <span className="text-sm text-gray-700 dark:text-gray-300">
-                                {getSizeName(size.id)}
-                              </span>
-                            </label>
-                          ))}
-                        </div>
-                      ) : sizeSearch ? (
-                        <div className="text-center py-4">
-                          <p className="text-gray-500 dark:text-gray-400 text-sm">
-                            No sizes found matching "{sizeSearch}"
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setSizeSearch("")}
-                            className="text-blue-600 hover:text-blue-700 text-sm mt-1">
-                            Clear search
-                          </button>
-                        </div>
-                      ) : (
-                        <p className="text-gray-500 dark:text-gray-400 text-sm">
-                          {formData.category
-                            ? "No sizes available for selected category"
-                            : "Select a category first"}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Available Colors */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Available Colors
-                  </label>
-                  <div className="border border-gray-300 dark:border-gray-600 rounded-lg">
-                    {/* Search and Add New Color Header */}
-                    <div className="p-3 border-b border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 rounded-t-lg">
-                      <div className="flex gap-2 items-center">
-                        <div className="flex-1 relative">
-                          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                          <input
-                            type="text"
-                            placeholder="Search colors..."
-                            value={colorSearch}
-                            onChange={(e) => setColorSearch(e.target.value)}
-                            className="w-full pl-8 pr-3 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowNewColorForm(!showNewColorForm)}
-                          className="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 flex items-center gap-1">
-                          <Palette className="w-3 h-3" />
-                          New Color
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* New Color Form */}
-                    {showNewColorForm && (
-                      <div className="p-3 bg-purple-50 dark:bg-purple-900 border-b border-gray-200 dark:border-gray-600">
-                        <div className="space-y-2">
-                          <div className="text-sm font-medium text-purple-900 dark:text-purple-100">
-                            Create New Color
-                          </div>
-                          <div className="flex gap-2 items-end">
-                            <div className="flex-1">
-                              <input
-                                type="text"
-                                placeholder="Color name (e.g., Ocean Blue)"
-                                value={newColorData.color_name}
-                                onChange={(e) =>
-                                  setNewColorData((prev) => ({
-                                    ...prev,
-                                    color_name: e.target.value,
-                                  }))
-                                }
-                                className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded focus:ring-blue-500 focus:border-blue-500"
-                                required
-                              />
-                            </div>
-                            <div className="w-24">
-                              <div className="flex items-center gap-1">
-                                <input
-                                  type="color"
-                                  value={newColorData.hex_code || "#000000"}
-                                  onChange={(e) =>
-                                    setNewColorData((prev) => ({
-                                      ...prev,
-                                      hex_code: e.target.value,
-                                    }))
-                                  }
-                                  className="w-8 h-6 rounded border border-gray-300 dark:border-gray-600"
-                                />
-                                <input
-                                  type="text"
-                                  placeholder="#FFFFFF"
-                                  value={newColorData.hex_code}
-                                  onChange={(e) =>
-                                    setNewColorData((prev) => ({
-                                      ...prev,
-                                      hex_code: e.target.value,
-                                    }))
-                                  }
-                                  className="w-16 px-1 py-1 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-white rounded focus:ring-blue-500 focus:border-blue-500"
-                                />
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={createNewColor}
-                              disabled={
-                                modalLoading || !newColorData.color_name.trim()
-                              }
-                              className="px-2 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-green-400 flex items-center gap-1">
-                              {modalLoading ? (
-                                <Loader2 className="w-3 h-3 animate-spin" />
-                              ) : (
-                                <CheckCircle className="w-3 h-3" />
-                              )}
-                              Create
-                            </button>
-                            <button
-                              type="button"
-                              onClick={resetNewColorForm}
-                              className="px-2 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600">
-                              Cancel
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Colors List */}
-                    <div className="p-4 max-h-40 overflow-y-auto">
-                      {filteredColors.length > 0 ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                          {filteredColors.map((color) => (
-                            <label
-                              key={`available-color-${color.id}`}
-                              className="flex items-center space-x-2">
-                              <input
-                                type="checkbox"
-                                checked={formData.available_colors.includes(
-                                  color.id
-                                )}
-                                onChange={(e) =>
-                                  handleMultiSelect(
-                                    "available_colors",
-                                    color.id,
-                                    e.target.checked
-                                  )
-                                }
-                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                              />
-                              <div className="flex items-center space-x-2">
-                                {color.hex_code && (
-                                  <span
-                                    className="w-4 h-4 rounded-full border border-gray-300"
-                                    style={{ backgroundColor: color.hex_code }}
-                                  />
-                                )}
-                                <span className="text-sm text-gray-700 dark:text-gray-300">
-                                  {color.color_name}
-                                </span>
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      ) : colorSearch ? (
-                        <div className="text-center py-4">
-                          <p className="text-gray-500 dark:text-gray-400 text-sm">
-                            No colors found matching "{colorSearch}"
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setColorSearch("")}
-                            className="text-purple-600 hover:text-purple-700 text-sm mt-1">
-                            Clear search
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="text-center py-4">
-                          <p className="text-gray-500 dark:text-gray-400 text-sm mb-2">
-                            No colors available
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setShowNewColorForm(true)}
-                            className="text-purple-600 hover:text-purple-700 text-sm">
-                            Create your first color
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Auto-generate Variants Option */}
-                {!productToEdit && (
-                  <div className="bg-blue-50 dark:bg-blue-900 p-4 rounded-lg">
-                    <div className="flex items-center mb-3">
-                      <input
-                        type="checkbox"
-                        id="autoGenerate"
-                        checked={autoGenerateVariants}
-                        onChange={(e) =>
-                          setAutoGenerateVariants(e.target.checked)
-                        }
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      />
-                      <label
-                        htmlFor="autoGenerate"
-                        className="ml-2 text-sm font-medium text-blue-900 dark:text-blue-100">
-                        Auto-generate variants for all size/color combinations
-                      </label>
-                    </div>
-
-                    {autoGenerateVariants && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                        <div>
-                          <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
-                            Base Price (£) *
-                          </label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            value={basePrice}
-                            onChange={(e) => setBasePrice(e.target.value)}
-                            required={autoGenerateVariants}
-                            className="w-full px-3 py-2 border border-blue-300 dark:border-blue-600 bg-white dark:bg-blue-800 text-blue-900 dark:text-blue-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                            placeholder="0.00"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
-                            Base Quantity
-                          </label>
-                          <input
-                            type="number"
-                            value={baseQuantity}
-                            onChange={(e) =>
-                              setBaseQuantity(parseInt(e.target.value) || 0)
-                            }
-                            className="w-full px-3 py-2 border border-blue-300 dark:border-blue-600 bg-white dark:bg-blue-800 text-blue-900 dark:text-blue-100 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {autoGenerateVariants &&
-                      formData.available_sizes.length > 0 &&
-                      formData.available_colors.length > 0 && (
-                        <div className="mt-3 p-2 bg-blue-100 dark:bg-blue-800 rounded text-sm text-blue-800 dark:text-blue-200">
-                          This will create{" "}
-                          {formData.available_sizes.length *
-                            formData.available_colors.length}{" "}
-                          variants automatically.
-                        </div>
-                      )}
-                  </div>
                 )}
 
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="is_active"
-                    checked={formData.is_active}
-                    onChange={handleFormChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                {currentStep === 2 && (
+                  <Step2ProductVariants
+                    variants={variants}
+                    updateVariant={updateVariant}
+                    addVariant={addVariant}
+                    removeVariant={removeVariant}
+                    sizes={sizes}
+                    colors={colors}
+                    createNewSize={createNewSize}
+                    createNewColor={createNewColor}
+                    productCategory={formData.category}
+                    categories={categories}
                   />
-                  <label className="ml-2 block text-sm text-gray-900 dark:text-white">
-                    Product is Active
-                  </label>
-                </div>
+                )}
 
-                <div className="flex justify-end space-x-3 pt-4">
+                {currentStep === 3 && (
+                  <Step3ProductImages
+                    productImages={productImages}
+                    handleImageChange={handleImageChange}
+                  />
+                )}
+
+                <div className="flex justify-between gap-3 mt-8 pt-4 border-t">
                   <button
                     type="button"
-                    onClick={closeProductModal}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg"
-                    disabled={modalLoading}>
+                    onClick={closeModal}
+                    className="px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm">
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={modalLoading}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg flex items-center">
-                    {modalLoading ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Save className="w-4 h-4 mr-2" />
+
+                  <div className="flex gap-3">
+                    {currentStep > 1 && (
+                      <button
+                        type="button"
+                        onClick={handleBack}
+                        disabled={loading}
+                        className="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50 flex items-center gap-1 text-sm">
+                        <ChevronLeft /> Back
+                      </button>
                     )}
-                    {modalLoading
-                      ? "Saving..."
-                      : productToEdit
-                      ? "Update Product"
-                      : "Create Product"}
-                  </button>
+
+                    {currentStep < steps.length && (
+                      <button
+                        type="button"
+                        onClick={handleNext}
+                        disabled={loading}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 flex items-center gap-1 text-sm">
+                        {loading ? (
+                          <Loader2 />
+                        ) : (
+                          <>
+                            Next <ChevronRight />
+                          </>
+                        )}
+                      </button>
+                    )}
+
+                    {currentStep === steps.length && (
+                      <button
+                        type="button"
+                        onClick={handleStep3Complete}
+                        disabled={loading}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-400 flex items-center gap-2 text-sm">
+                        {loading ? (
+                          <>
+                            <Loader2 /> Finishing...
+                          </>
+                        ) : (
+                          <>
+                            <Save /> Finish {editingId ? "Update" : "Creation"}
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </form>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* Variant Modal */}
-      {isVariantModalOpen && (
-        <div className="fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {variantToEdit ? "Edit Variant" : "Create New Variant"}
-                </h3>
-                <button
-                  onClick={closeVariantModal}
-                  className="p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-
-              <form onSubmit={handleSaveVariant} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Size *
-                    </label>
-                    <select
-                      name="size"
-                      value={variantFormData.size || ""}
-                      onChange={handleVariantFormChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                      <option value="">Select Size</option>
-                      {selectedProduct?.available_sizes?.map((sizeId) => {
-                        const size = sizes.find((s) => s.id === sizeId);
-                        return size ? (
-                          <option key={`size-${size.id}`} value={size.id}>
-                            {getSizeName(size.id)}
-                          </option>
-                        ) : null;
-                      })}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Color *
-                    </label>
-                    <select
-                      name="color"
-                      value={variantFormData.color || ""}
-                      onChange={handleVariantFormChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                      <option value="">Select Color</option>
-                      {selectedProduct?.available_colors?.map((colorId) => {
-                        const color = colors.find((c) => c.id === colorId);
-                        return color ? (
-                          <option key={`color-${color.id}`} value={color.id}>
-                            {color.color_name}
-                          </option>
-                        ) : null;
-                      })}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Price (£) *
-                    </label>
-                    <input
-                      type="number"
-                      name="price"
-                      step="0.01"
-                      value={variantFormData.price}
-                      onChange={handleVariantFormChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="0.00"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Quantity *
-                    </label>
-                    <input
-                      type="number"
-                      name="quantity"
-                      value={variantFormData.quantity}
-                      onChange={handleVariantFormChange}
-                      required
-                      min="0"
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    SKU (Optional)
-                  </label>
-                  <input
-                    type="text"
-                    name="sku"
-                    value={variantFormData.sku}
-                    onChange={handleVariantFormChange}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., PROD-M-RED-001"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Variant Description (Optional)
-                  </label>
-                  <textarea
-                    name="description"
-                    value={variantFormData.description}
-                    onChange={handleVariantFormChange}
-                    rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Additional notes for this variant..."
-                  />
-                </div>
-
-                <div className="flex items-center">
-                  <input
-                    type="checkbox"
-                    name="is_active"
-                    checked={variantFormData.is_active}
-                    onChange={handleVariantFormChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
-                  <label className="ml-2 block text-sm text-gray-900 dark:text-white">
-                    Variant is Active
-                  </label>
-                </div>
-
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={closeVariantModal}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-lg"
-                    disabled={modalLoading}>
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={modalLoading}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 rounded-lg flex items-center">
-                    {modalLoading ? (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    ) : (
-                      <Save className="w-4 h-4 mr-2" />
-                    )}
-                    {modalLoading
-                      ? "Saving..."
-                      : variantToEdit
-                      ? "Update Variant"
-                      : "Create Variant"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Empty States for filtered products */}
-      {!loading && filteredProducts.length === 0 && products.length === 0 && (
-        <div className="text-center py-12">
-          <Package className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            No Products Found
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            Start by adding your first product to the catalogue
-          </p>
-          <button
-            onClick={() => openProductModal()}
-            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">
-            <Plus className="w-4 h-4 mr-2" />
-            Add First Product
-          </button>
-        </div>
-      )}
-
-      {!loading && filteredProducts.length === 0 && products.length > 0 && (
-        <div className="text-center py-12">
-          <Search className="h-16 w-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            No Products Match Your Search
-          </h3>
-          <p className="text-gray-600 dark:text-gray-400">
-            Try adjusting your search terms or filters
-          </p>
         </div>
       )}
     </div>

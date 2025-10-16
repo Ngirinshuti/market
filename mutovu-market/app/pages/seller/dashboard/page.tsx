@@ -1,6 +1,6 @@
 // Updated Dashboard Layout Component with Fixed Sidebar and Header
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Store,
@@ -29,7 +29,9 @@ interface Tab {
   icon: React.ReactElement;
   component: (props: {
     selectedShopId: number | null;
-    onShopSelect?: (id: number) => void;
+    authToken?: string;
+    onShopSelect?: (id: number | null) => void;
+    onCreateShopClick?: (openFn: () => void) => void;
   }) => React.ReactElement;
   requiresShop?: boolean;
 }
@@ -60,12 +62,19 @@ const TABS: Tab[] = [
     id: "shops",
     name: "My Shops",
     icon: <Store />,
-    component: ({ selectedShopId, onShopSelect }) => (
-      <MyShops
-        selectedShopId={selectedShopId}
-        onShopSelect={onShopSelect || (() => {})}
-      />
-    ),
+    component: (props) => {
+      console.log(
+        "Shops component wrapper - received props:",
+        Object.keys(props)
+      );
+      return (
+        <MyShops
+          selectedShopId={props.selectedShopId}
+          onShopSelect={props.onShopSelect || (() => {})}
+          onCreateShopClick={props.onCreateShopClick}
+        />
+      );
+    },
   },
   {
     id: "nearby",
@@ -197,7 +206,6 @@ const ShopSelector = ({
   );
 };
 
-// UPDATED SIDEBAR - Now properly fixed
 const Sidebar = ({
   sidebarOpen,
   setSidebarOpen,
@@ -212,20 +220,17 @@ const Sidebar = ({
   tabs: Tab[];
 }) => (
   <>
-    {/* Mobile Sidebar Overlay */}
     {sidebarOpen && (
       <div
-        className="relative inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+        className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
         onClick={() => setSidebarOpen(false)}
       />
     )}
 
-    {/* Sidebar */}
     <div
-      className={`absolute inset-y-0 top-[17.5%] left-0 z-20 flex w-80 flex-col transition-transform duration-300 ease-in-out transform ${
+      className={`fixed inset-y-0 left-0 z-20 flex w-80 flex-col transition-transform duration-300 ease-in-out transform ${
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       } lg:translate-x-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 shadow-xl lg:shadow-none`}>
-      {/* Sidebar Header - Fixed */}
       <div className="flex h-20 shrink-0 items-center justify-between border-b border-gray-200 dark:border-gray-800 px-6 bg-white dark:bg-gray-900">
         <div className="flex items-center">
           <Layers3 className="h-6 w-6 text-blue-600 dark:text-blue-400 mr-2" />
@@ -241,7 +246,6 @@ const Sidebar = ({
         </button>
       </div>
 
-      {/* Sidebar Navigation - Scrollable */}
       <nav className="flex-1 overflow-y-auto p-4 space-y-2">
         <div className="px-3 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
           Management
@@ -269,7 +273,6 @@ const Sidebar = ({
   </>
 );
 
-// UPDATED MAIN HEADER - Now properly fixed
 const MainHeader = ({
   shops,
   selectedShopId,
@@ -286,8 +289,7 @@ const MainHeader = ({
   setSidebarOpen: (open: boolean) => void;
 }) => (
   <>
-    {/* Mobile Header */}
-    <div className="lg:hidden relative top-0 left-0 right-0 z-20 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+    <div className="lg:hidden fixed top-0 left-0 right-0 z-20 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between h-16 px-4">
         <button
           onClick={() => setSidebarOpen(true)}
@@ -308,8 +310,7 @@ const MainHeader = ({
       </div>
     </div>
 
-    {/* Desktop Header */}
-    <div className="hidden lg:block relative w-[74.7%] left-80 right-0 z-20 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+    <div className="hidden lg:block fixed w-[calc(100%-20rem)] left-80 right-0 top-0 z-20 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between h-20 px-6">
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
           {React.cloneElement(currentTab?.icon || <Store />, {
@@ -341,6 +342,13 @@ const DashboardLayout = () => {
   const [shops, setShops] = useState<Shop[]>([]);
   const [loadingShops, setLoadingShops] = useState(true);
   const [error, setError] = useState("");
+  const [isCreatingShop, setIsCreatingShop] = useState(false);
+  const [isModelOpen, setIsModelOpen] = useState(false);
+
+  // Use ref to store the modal opener function - refs persist across re-renders
+  const openCreateModalRef = useRef<(() => void) | null>(null);
+  // Track if we need to open modal after component mounts
+  const pendingModalOpenRef = useRef(false);
 
   const fetchShops = useCallback(async () => {
     setLoadingShops(true);
@@ -396,7 +404,7 @@ const DashboardLayout = () => {
       } else {
         setSelectedShopId(null);
       }
-    } catch (err) {
+    } catch (err: any) {
       if (err.response?.status === 401) {
         authUtils.clearAuthData();
         router.push("/pages/login");
@@ -418,14 +426,106 @@ const DashboardLayout = () => {
     fetchShops();
   }, [fetchShops]);
 
+  // Check if there's a pending modal open request after each render
+  useEffect(() => {
+    if (pendingModalOpenRef.current && openCreateModalRef.current) {
+      console.log("DashboardLayout: Opening modal via useEffect");
+      const timer = setTimeout(() => {
+        if (openCreateModalRef.current) {
+          openCreateModalRef.current();
+          pendingModalOpenRef.current = false;
+          setIsCreatingShop(false);
+        }
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  });
+
+  // Handle the create shop button click
+  const handleCreateShopClick = () => {
+    setIsModelOpen(true);
+    // Prevent multiple rapid clicks
+    if (isCreatingShop) {
+      console.log("Already processing, ignoring click");
+      return;
+    }
+
+    console.log("Create Shop button clicked!");
+    const shopsTab = TABS.find((t) => t.id === "shops");
+
+    if (!shopsTab) {
+      console.error("ERROR: 'shops' tab not found");
+      return;
+    }
+
+    setIsCreatingShop(true);
+
+    // Switch to shops tab if not already there
+    if (currentTab.id !== "shops") {
+      console.log("Switching to shops tab...");
+      setCurrentTab(shopsTab);
+      pendingModalOpenRef.current = true; // Mark that we need to open modal
+    } else {
+      // Already on shops tab, try to open modal immediately
+      if (openCreateModalRef.current) {
+        console.log("Opening modal immediately");
+        openCreateModalRef.current();
+        // Reset flag after modal opens
+        setTimeout(() => {
+          setIsCreatingShop(false);
+        }, 1000);
+      } else {
+        console.log("Modal opener not ready, marking as pending");
+        pendingModalOpenRef.current = true;
+      }
+    }
+  };
+
+  // Callback to receive the modal opener from MyShops
+  const setModalOpenCallback = useCallback((fn: () => void) => {
+    console.log("Received modal opener function from MyShops");
+    openCreateModalRef.current = fn;
+
+    // If there's a pending request, execute it now
+    if (pendingModalOpenRef.current) {
+      console.log("Executing pending modal open request immediately");
+      setTimeout(() => {
+        if (openCreateModalRef.current) {
+          openCreateModalRef.current();
+          pendingModalOpenRef.current = false;
+          setIsCreatingShop(false);
+        }
+      }, 100);
+    }
+  }, []); // Remove isCreatingShop from dependencies
+
   const CurrentComponent = currentTab.component;
+
+  const token = authUtils.getAccessToken();
 
   const componentProps = {
     selectedShopId: selectedShopId,
+    authToken: token || "",
     ...(currentTab.id === "shops"
-      ? { onShopSelect: (id: number) => setSelectedShopId(id) }
+      ? {
+          onShopSelect: (id: number | null) => {
+            console.log("onShopSelect called with:", id);
+            setSelectedShopId(id);
+          },
+          onCreateShopClick: setModalOpenCallback,
+        }
       : {}),
   };
+
+  console.log(
+    "DashboardLayout render - currentTab:",
+    currentTab.id,
+    "componentProps has onCreateShopClick:",
+    !!(componentProps as any).onCreateShopClick,
+    "onCreateShopClick value:",
+    (componentProps as any).onCreateShopClick
+  );
 
   const hasNoShops = !loadingShops && shops.length === 0 && !error;
   const isShopRequiredAndMissing =
@@ -436,8 +536,7 @@ const DashboardLayout = () => {
     !error;
 
   return (
-    <div className="h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
-      {/* Fixed Sidebar */}
+    <div className="h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden py-20">
       <Sidebar
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
@@ -446,7 +545,6 @@ const DashboardLayout = () => {
         tabs={TABS}
       />
 
-      {/* Fixed Header */}
       <MainHeader
         shops={shops}
         selectedShopId={selectedShopId}
@@ -456,11 +554,10 @@ const DashboardLayout = () => {
         setSidebarOpen={setSidebarOpen}
       />
 
-      {/* Main Content Area - Scrollable */}
       <main
-        className="lg:ml-80 pt-16 lg:pt-20 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900"
+        className="lg:ml-80 pt-16 lg:pt-20 h-full overflow-y-auto bg-gray-50 dark:bg-gray-900 "
         style={{
-          paddingTop: "0rem", // 16 for mobile, 20 for desktop
+          paddingTop: "0rem",
           height: "100vh",
         }}>
         <div className="min-h-full">
@@ -489,6 +586,8 @@ const DashboardLayout = () => {
                 </div>
               </div>
             </div>
+          ) : isModelOpen ? (
+            <MyShops />
           ) : hasNoShops ? (
             <div className="p-6">
               <div className="bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-200 px-6 py-8 rounded-lg text-center max-w-2xl mx-auto mt-20">
@@ -501,10 +600,10 @@ const DashboardLayout = () => {
                   first shop to get started.
                 </p>
                 <button
-                  onClick={() =>
-                    setCurrentTab(TABS.find((t) => t.id === "shops"))
-                  }
-                  className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition">
+                  type="button"
+                  onClick={handleCreateShopClick}
+                  // disabled={isCreatingShop}
+                  className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition disabled:opacity-50 disabled:cursor-not-allowed">
                   <PlusCircle className="w-5 h-5 mr-2" />
                   Create Your First Shop
                 </button>
@@ -526,7 +625,7 @@ const DashboardLayout = () => {
               </div>
             </div>
           ) : (
-            <CurrentComponent {...componentProps} />
+            <CurrentComponent key={currentTab.id} {...componentProps} />
           )}
         </div>
       </main>

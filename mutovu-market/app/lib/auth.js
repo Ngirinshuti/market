@@ -35,12 +35,12 @@ export const authUtils = {
 
       // Try to validate the token by fetching fresh profile data
       const profile = await authUtils.getProfile();
-      
+
       // Update stored user data with fresh data
       if (profile && typeof window !== "undefined") {
         localStorage.setItem("user", JSON.stringify(profile));
       }
-      
+
       return profile;
     } catch (error) {
       // Token is invalid or expired

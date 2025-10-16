@@ -1,5 +1,6 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import {
   MapPin,
   Navigation,
@@ -12,11 +13,14 @@ import {
   Loader,
   Filter,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { authUtils } from "../../lib/auth";
 import axios from "axios";
 
-const API_BASE_URL = "http://localhost:8000/api";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api";
+const GOOGLE_MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
 
 interface Shop {
   id: number;
@@ -30,7 +34,7 @@ interface Shop {
   is_active: boolean;
   is_verified: boolean;
   created_at: string;
-  distance?: number; // Distance in km (calculated by backend)
+  distance?: number;
 }
 
 interface LocationState {
@@ -39,30 +43,208 @@ interface LocationState {
   accuracy?: number;
 }
 
+declare global {
+  interface Window {
+    google: typeof google;
+    googleMapsScriptLoading?: boolean;
+    initNearbyShopsMap?: () => void;
+  }
+}
+
 const NearbyShops: React.FC = () => {
   const [shops, setShops] = useState<Shop[]>([]);
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [mapLoading, setMapLoading] = useState(true);
+  const [mapError, setMapError] = useState("");
 
-  // Location state
+  // Map refs
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const userMarkerRef = useRef<google.maps.Marker | null>(null);
+
   const [userLocation, setUserLocation] = useState<LocationState | null>(null);
   const [locationError, setLocationError] = useState("");
 
-  // Form state
   const [searchForm, setSearchForm] = useState({
     latitude: "",
     longitude: "",
     radius: "5",
   });
 
-  // Filter state
   const [filters, setFilters] = useState({
     radius: 5,
     verified_only: false,
     active_only: true,
   });
+
+  // Load Google Maps script
+  useEffect(() => {
+    if (!GOOGLE_MAPS_API_KEY) {
+      setMapError("Google Maps API key is missing");
+      setMapLoading(false);
+      return;
+    }
+
+    if (window.google?.maps) {
+      setMapLoading(false);
+      return;
+    }
+
+    if (window.googleMapsScriptLoading) {
+      const checkInterval = setInterval(() => {
+        if (window.google?.maps) {
+          setMapLoading(false);
+          clearInterval(checkInterval);
+        }
+      }, 100);
+      return () => clearInterval(checkInterval);
+    }
+
+    window.googleMapsScriptLoading = true;
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_API_KEY}&libraries=places`;
+    script.async = true;
+    script.defer = true;
+
+    script.onload = () => {
+      window.googleMapsScriptLoading = false;
+      setMapLoading(false);
+    };
+
+    script.onerror = () => {
+      setMapError("Failed to load Google Maps");
+      setMapLoading(false);
+      window.googleMapsScriptLoading = false;
+    };
+
+    document.head.appendChild(script);
+  }, []);
+
+  // Initialize map when ready
+  useEffect(() => {
+    if (mapLoading || mapError || !window.google?.maps || !mapRef.current) {
+      return;
+    }
+
+    if (mapInstanceRef.current) return;
+
+    try {
+      const map = new google.maps.Map(mapRef.current, {
+        center: { lat: -1.9441, lng: 30.0588 },
+        zoom: 12,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true,
+      });
+
+      mapInstanceRef.current = map;
+    } catch (err) {
+      console.error("Error initializing map:", err);
+      setMapError("Failed to initialize map");
+    }
+  }, [mapLoading, mapError]);
+
+  // Update map with shops
+  useEffect(() => {
+    if (!mapInstanceRef.current || !window.google?.maps) return;
+
+    // Clear existing markers
+    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current = [];
+
+    // Add user location marker
+    if (userLocation) {
+      if (userMarkerRef.current) {
+        userMarkerRef.current.setMap(null);
+      }
+
+      userMarkerRef.current = new google.maps.Marker({
+        position: { lat: userLocation.lat, lng: userLocation.lng },
+        map: mapInstanceRef.current,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 10,
+          fillColor: "#4285F4",
+          fillOpacity: 1,
+          strokeColor: "#ffffff",
+          strokeWeight: 2,
+        },
+        title: "Your Location",
+      });
+
+      mapInstanceRef.current.setCenter({
+        lat: userLocation.lat,
+        lng: userLocation.lng,
+      });
+    }
+
+    // Add shop markers
+    const bounds = new google.maps.LatLngBounds();
+    let hasValidLocation = false;
+
+    shops.forEach((shop) => {
+      if (shop.latitude && shop.longitude) {
+        const position = { lat: shop.latitude, lng: shop.longitude };
+
+        const marker = new google.maps.Marker({
+          position,
+          map: mapInstanceRef.current,
+          title: shop.name,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: shop.is_active ? "#10b981" : "#ef4444",
+            fillOpacity: 1,
+            strokeColor: "#ffffff",
+            strokeWeight: 2,
+          },
+        });
+
+        const infoWindow = new google.maps.InfoWindow({
+          content: `
+            <div style="padding: 8px; max-width: 200px;">
+              <h3 style="margin: 0 0 8px 0; font-weight: bold;">${
+                shop.name
+              }</h3>
+              <p style="margin: 4px 0; font-size: 12px;">${shop.address}</p>
+              ${
+                shop.distance
+                  ? `<p style="margin: 4px 0; font-size: 12px; color: #6b7280;">Distance: ${formatDistance(
+                      shop.distance
+                    )}</p>`
+                  : ""
+              }
+              <p style="margin: 4px 0; font-size: 12px;">
+                <a href="tel:${shop.phone}" style="color: #2563eb;">📞 ${
+            shop.phone
+          }</a>
+              </p>
+            </div>
+          `,
+        });
+
+        marker.addListener("click", () => {
+          infoWindow.open(mapInstanceRef.current, marker);
+        });
+
+        markersRef.current.push(marker);
+        bounds.extend(position);
+        hasValidLocation = true;
+      }
+    });
+
+    // Fit bounds if we have locations
+    if (hasValidLocation) {
+      if (userLocation) {
+        bounds.extend({ lat: userLocation.lat, lng: userLocation.lng });
+      }
+      mapInstanceRef.current.fitBounds(bounds);
+    }
+  }, [shops, userLocation]);
 
   useEffect(() => {
     requestLocationPermission();
@@ -93,7 +275,6 @@ const NearbyShops: React.FC = () => {
         });
         setLocationLoading(false);
 
-        // Automatically search for nearby shops
         searchNearbyShops(location.lat, location.lng, filters.radius);
       },
       (error) => {
@@ -103,7 +284,7 @@ const NearbyShops: React.FC = () => {
       {
         enableHighAccuracy: true,
         timeout: 10000,
-        maximumAge: 300000, // 5 minutes
+        maximumAge: 300000,
       }
     );
   };
@@ -139,7 +320,6 @@ const NearbyShops: React.FC = () => {
     setSuccess("");
 
     try {
-      // Use provided coordinates or form values
       const searchLat = lat || parseFloat(searchForm.latitude);
       const searchLng = lng || parseFloat(searchForm.longitude);
       const searchRadius = radius || filters.radius;
@@ -156,7 +336,7 @@ const NearbyShops: React.FC = () => {
         headers.Authorization = `Bearer ${accessToken}`;
       }
 
-      const response = await axios.get(`${API_BASE_URL}/shops/nearby`, {
+      const response = await axios.get(`${API_BASE_URL}/api/shops/nearby`, {
         params: {
           lat: searchLat,
           lng: searchLng,
@@ -190,25 +370,6 @@ const NearbyShops: React.FC = () => {
     searchNearbyShops();
   };
 
-  const calculateDistance = (
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number
-  ): number => {
-    const R = 6371; // Earth's radius in kilometers
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLng = ((lng2 - lng1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLng / 2) *
-        Math.sin(dLng / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
   const formatDistance = (distance: number): string => {
     if (distance < 1) {
       return `${(distance * 1000).toFixed(0)}m`;
@@ -218,7 +379,7 @@ const NearbyShops: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-7xl mx-auto px-4">
         {/* Header */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
           <div className="flex items-center justify-between">
@@ -272,6 +433,40 @@ const NearbyShops: React.FC = () => {
           </div>
         )}
 
+        {/* Map View */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 mb-8">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <MapPin className="h-5 w-5" />
+              Map View
+            </h2>
+          </div>
+          <div className="p-6">
+            {mapLoading ? (
+              <div className="h-96 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <div className="text-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Loading map...
+                  </p>
+                </div>
+              </div>
+            ) : mapError ? (
+              <div className="h-96 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <div className="text-center text-red-500">
+                  <AlertCircle className="h-8 w-8 mx-auto mb-2" />
+                  <p className="text-sm">{mapError}</p>
+                </div>
+              </div>
+            ) : (
+              <div
+                ref={mapRef}
+                className="h-96 w-full rounded-lg border border-gray-200 dark:border-gray-600"
+              />
+            )}
+          </div>
+        </div>
+
         {/* Search Form */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-8">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
@@ -281,7 +476,6 @@ const NearbyShops: React.FC = () => {
 
           <form onSubmit={handleManualSearch} className="space-y-4">
             <div className="grid md:grid-cols-3 gap-4">
-              {/* Latitude */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Latitude
@@ -298,7 +492,6 @@ const NearbyShops: React.FC = () => {
                 />
               </div>
 
-              {/* Longitude */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Longitude
@@ -315,7 +508,6 @@ const NearbyShops: React.FC = () => {
                 />
               </div>
 
-              {/* Radius */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Search Radius
@@ -335,7 +527,6 @@ const NearbyShops: React.FC = () => {
               </div>
             </div>
 
-            {/* Filters */}
             <div className="flex flex-wrap gap-4">
               <label className="flex items-center gap-2">
                 <input
@@ -364,7 +555,6 @@ const NearbyShops: React.FC = () => {
               </label>
             </div>
 
-            {/* Submit Button */}
             <div className="flex items-center gap-4">
               <button
                 type="submit"
@@ -441,16 +631,7 @@ const NearbyShops: React.FC = () => {
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {shops.map((shop) => {
-                  // Calculate distance if we have user location
-                  const distance =
-                    userLocation && shop.latitude && shop.longitude
-                      ? calculateDistance(
-                          userLocation.lat,
-                          userLocation.lng,
-                          shop.latitude,
-                          shop.longitude
-                        )
-                      : shop.distance;
+                  const distance = shop.distance;
 
                   return (
                     <div
@@ -482,7 +663,6 @@ const NearbyShops: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Distance */}
                       {distance && (
                         <div className="flex items-center gap-2 mb-3">
                           <MapPin className="h-4 w-4 text-gray-400" />
@@ -492,7 +672,6 @@ const NearbyShops: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Contact Info */}
                       <div className="space-y-2 mb-4">
                         <div className="flex items-center gap-2">
                           <Phone className="h-4 w-4 text-gray-400" />
@@ -516,7 +695,6 @@ const NearbyShops: React.FC = () => {
                         </div>
                       </div>
 
-                      {/* Location Coordinates */}
                       {shop.latitude && shop.longitude && (
                         <div className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                           Coordinates: {shop.latitude.toFixed(4)},{" "}
@@ -524,7 +702,6 @@ const NearbyShops: React.FC = () => {
                         </div>
                       )}
 
-                      {/* Actions */}
                       <div className="flex items-center gap-2">
                         {shop.latitude && shop.longitude && (
                           <a
